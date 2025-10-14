@@ -11,8 +11,10 @@ Currently this extension is only available through this GitHub repo. We'll relea
 1. Ensure you have [Node.js](https://nodejs.org/) >= **16**.
 2. Clone this repository
 3. Run `yarn` to install the dependencies
-4. Run `yarn start` to build the package
-5. Load your extension on Chrome by doing the following:
+4. Run `yarn add -D typescript @babel/preset-typescript` to account for additional dependencies
+5. Run `yarn add -D @babel/preset-react` to account for additional dependencies
+6. Run `yarn start` to build the package
+7. Load your extension on Chrome by doing the following:
    1. Navigate to `chrome://extensions/`
    2. Toggle `Developer mode`
    3. Click on `Load unpacked extension`
