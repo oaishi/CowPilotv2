@@ -6,6 +6,7 @@ import {
   detachDebugger,
   isDebuggerAttachedToCurrentWindow} from '../helpers/chromeDebugger';
 import { determineNextAction } from '../helpers/determineNextAction';
+import { determineUserInteractionDecision } from '../helpers/determineUserInteraction';
 import {
   disableIncompatibleExtensions,
   reenableExtensions
@@ -76,6 +77,7 @@ export type CurrentTaskSlice = {
   totalAgentTime: number;
   totalHumanTime: number;
   status: 'idle' | 'running' | 'success' | 'error' | 'interrupted'| 'accept'| 'reject';
+  autoProceed: boolean; // GPT-based decision: false = auto-execute, true = wait for feedback
   actionStatus:
     | 'idle'
     | 'attaching-debugger'
@@ -121,12 +123,13 @@ function postdata(url: string, data: any){
   });
 }
 
-function makeRandomDecision(): boolean {
-  // generate a random number, return true if even, false if odd
-  const n = Math.floor(Math.random() * 1000000);
-  console.log('Auto-decision random number:', n);
-  return n % 2 === 0;
-}
+// Removed makeRandomDecision() - now using GPT-based decision via determineUserInteractionDecision()
+// function makeRandomDecision(): boolean {
+//   // generate a random number, return true if even, false if odd
+//   const n = Math.floor(Math.random() * 1000000);
+//   console.log('Auto-decision random number:', n);
+//   return n % 2 === 0;
+// }
 
 
 function creategptactiondataforpost(taskhistory :TaskHistoryEntry, time: Number, flag: number, relation_id: any){
@@ -207,6 +210,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
     totalAgentTime: 0,
     totalHumanTime: 0,
     status: 'idle',
+    autoProceed: true, // Default to waiting for feedback (safer)
     actionStatus: 'idle',
     actions: {
       runTask: async (onError) => {
@@ -413,13 +417,46 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               // const previousActions = get()
               // .currentTask.history.map((entry) => entry.action)
               // .filter(truthyFilter);
-              const previousActions = get().currentTask.history.map(entry => ({
-                thought: entry.action.thought,
-                action: entry.action.action,
-                parsedAction: entry.action.parsedAction,
-                filteredusersteps: entry.filteredusersteps,
-                feedback: entry.action.feedback
-              })).filter(truthyFilter);
+              const previousActions = get().currentTask.history
+                .filter(entry => !('error' in entry.action))
+                .map(entry => ({
+                  thought: (entry.action as ParsedResponseSuccess).thought,
+                  action: (entry.action as ParsedResponseSuccess).action,
+                  parsedAction: (entry.action as ParsedResponseSuccess).parsedAction,
+                  filteredusersteps: entry.filteredusersteps,
+                  feedback: (entry.action as ParsedResponseSuccess).feedback
+                }))
+                .filter(truthyFilter);
+        
+              // 🟩 GPT-based decision for user interaction (replaces random decision)
+              let decision: boolean = false; // default to auto-continue if error
+              try {
+                const filteredActions = previousActions.filter(
+                  (pa) => !('error' in pa)
+                ) as ParsedResponseSuccess[];
+                
+                logTimeEvent("Agent: Starting decision model query");
+                const decisionResult = await determineUserInteractionDecision(
+                  instructions,
+                  filteredActions,
+                  axtree_rep,
+                  3,
+                  onError
+                );
+                decision = decisionResult;
+                // decision = true means ask_user (wait for feedback)
+                // decision = false means agent_continue (auto-execute)
+                // autoProceed = false means don't auto (wait), autoProceed = true means auto-execute
+                // So we invert: autoProceed = !decision
+                set((state) => { state.currentTask.autoProceed = !decision; });
+                logTimeEvent(`Agent: Decision made - ${decision ? 'Ask User (wait for feedback)' : 'Auto Continue (execute immediately)'}`);
+              } catch (e: any) {
+                console.error('Decision model error, defaulting to auto-continue:', e);
+                logTimeEvent('Error: Decision model failed, defaulting to auto-continue');
+                // Fallback: default to auto-continue (false) if decision fails
+                decision = false;
+                set((state) => { state.currentTask.autoProceed = true; }); // auto-execute
+              }
         
               setActionStatus('performing-query'); 
               logTimeEvent("Agent: Starting GPT query"); 
@@ -550,12 +587,13 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 state.currentTask.history.push(currententryfortaskhistory);
               });
 
-              // NEW CODE
-              // 🟩 AUTO-DECISION HANDLING INSERTED HERE
+              // 🟩 GPT-based decision handling (replaces random decision)
+              // Decision was made earlier (line ~426-454) and stored in autoProceed state
               try {
                 const autoDecision = get().currentTask.autoProceed;
                 if (autoDecision === false) {
-                  console.log('Auto-decision: proceed without waiting for human feedback');
+                  // autoProceed = false means auto-execute (don't wait for feedback)
+                  console.log('GPT decision: proceed without waiting for human feedback (auto-execute)');
 
                   // mark as accepted and set feedback if present
                   set((state) => {
@@ -576,19 +614,26 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                     // perform the action immediately
                     performdomoperation(action);
                   } else {
-                    console.log('This step is already done (autoProceed). Recalling model.');
+                    console.log('This step is already done (auto-execute). Recalling model.');
                     fetchmodelResponse(instructions);
                   }
 
-                  // stop timeout loop since we’re not waiting for feedback
+                  // stop timeout loop since we're not waiting for feedback
                   stopFlag = true;
                   stopTimeoutFunction();
                   return;
+                } else {
+                  // autoProceed = true means wait for human feedback
+                  console.log('GPT decision: wait for human feedback');
+                  // Start the timeout function to wait for user input
+                  timeoutFunction(waitforfeedback);
                 }
               } catch (e) {
-                console.error('Auto decision handling error', e);
+                console.error('Decision handling error', e);
+                // On error, default to waiting for feedback (safer)
+                timeoutFunction(waitforfeedback);
               }
-              // 🟩 END AUTO-DECISION HANDLING
+              // 🟩 END DECISION HANDLING
           
               if (action.parsedAction.name === 'finish' || action.parsedAction.name === 'finishwithanswer') {
                 logTimeEvent("Agent: Finished execution step (finish/finishwithanswer)");
@@ -817,7 +862,9 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
             logTimeEvent("Agent: Starting performdomoperation");
             setActionStatus('performing-action');
             const waitTime = performance.now();
-            console.log(`Wait took: ${waitTime - rippleTime} milliseconds`);
+            // rippleTime might be undefined if this is called before it's set, so use agentPerformStart instead
+            const rippleTimeToUse = rippleTime ?? agentPerformStart;
+            console.log(`Wait took: ${waitTime - rippleTimeToUse} milliseconds`);
 
             const noDebugger = await isDebuggerAttachedToCurrentWindow();
             if (noDebugger && get().currentTask.status === "running")
@@ -838,7 +885,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               return;
             }
             
-            let metadata: DomElementmetadata;
+            let metadata: DomElementmetadata | undefined;
             if (action.parsedAction.name === 'click' 
                 || action.parsedAction.name === 'hover'
                 || action.parsedAction.name === 'scroll') {
@@ -849,6 +896,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               }
               catch (e: any) {
                 logTimeEvent('Error: callDOMAction failed');
+                metadata = undefined;
               } 
             } 
             else if (action.parsedAction.name === 'setvalue') {
@@ -861,6 +909,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               }
               catch (e: any) {
                 logTimeEvent('Error: callDOMAction failed');
+                metadata = undefined;
               } 
             } 
             else if (action.parsedAction.name === 'goto') {
@@ -873,6 +922,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               }
               catch (e: any) {
                 logTimeEvent('Error: callDOMAction failed');
+                metadata = undefined;
               } 
                 
               const activeTab = (
@@ -914,8 +964,27 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
             
             set((state) => {
               if (state.currentTask.history.length > 0) {
-                state.currentTask.history[state.currentTask.history.length - 1].metadata = metadata;
-                state.currentTask.history[state.currentTask.history.length - 1].metadata.Screenshot = img_data;
+                const lastEntry = state.currentTask.history[state.currentTask.history.length - 1];
+                if (metadata) {
+                  lastEntry.metadata = metadata;
+                  lastEntry.metadata.Screenshot = img_data;
+                } else {
+                  // If metadata is undefined, at least initialize it with the screenshot
+                  if (!lastEntry.metadata) {
+                    // Initialize with minimal metadata if it doesn't exist
+                    lastEntry.metadata = {
+                      DOM: '',
+                      AXTree: '',
+                      Screenshot: img_data,
+                      action_type: action.parsedAction.name,
+                      position: '',
+                      nodeID: -1,
+                      URL: ''
+                    };
+                  } else {
+                    lastEntry.metadata.Screenshot = img_data;
+                  }
+                }
               }
             });
             
@@ -946,22 +1015,13 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
             logTimeEvent("Agent: Finished performdomoperation");
           }
           
-          //OLD CODE
-          //fetchmodelResponse(instructions);
-          //timeoutFunction(waitforfeedback);
-          
-          //NEW
-          // 🟩 Added random decision and conditional waiting
-          const decision = makeRandomDecision();
-
-          // 🟩 store decision on state so fetchmodelResponse can act accordingly
-          set((state) => { state.currentTask.autoProceed = decision; });
-
-          // existing call
+          // 🟩 GPT-based decision is now made inside fetchmodelResponse() after getting context
+          // Decision happens after AX tree and previous actions are available
           fetchmodelResponse(instructions);
-
-          // 🟩 If decision is true -> wait for human feedback; else auto execute
-          if (decision) timeoutFunction(waitforfeedback);
+          
+          // Note: The decision is stored in autoProceed state inside fetchmodelResponse()
+          // The timeoutFunction(waitforfeedback) is called inside fetchmodelResponse() 
+          // based on the autoProceed state (see lines ~554-590)
 
         } catch (e: any) {
           onError(e.message);
