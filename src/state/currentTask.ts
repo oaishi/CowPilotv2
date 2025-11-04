@@ -435,13 +435,24 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   (pa) => !('error' in pa)
                 ) as ParsedResponseSuccess[];
                 
+                // Take screenshot for decision model
+                let screenshotData = '';
+                try {
+                  screenshotData = await takeScreenshot();
+                  logTimeEvent("Agent: Screenshot captured for decision model");
+                } catch (e: any) {
+                  console.log('Screenshot failed for decision model, continuing without it:', e);
+                  logTimeEvent('Warning: Screenshot capture failed for decision model');
+                }
+                
                 logTimeEvent("Agent: Starting decision model query");
                 const decisionResult = await determineUserInteractionDecision(
                   instructions,
                   filteredActions,
                   axtree_rep,
                   3,
-                  onError
+                  onError,
+                  screenshotData || undefined
                 );
                 decision = decisionResult;
                 // decision = true means ask_user (wait for feedback)
@@ -591,8 +602,8 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               // Decision was made earlier (line ~426-454) and stored in autoProceed state
               try {
                 const autoDecision = get().currentTask.autoProceed;
-                if (autoDecision === false) {
-                  // autoProceed = false means auto-execute (don't wait for feedback)
+                if (autoDecision === true) {
+                  // autoProceed = true means auto-execute (don't wait for feedback)
                   console.log('GPT decision: proceed without waiting for human feedback (auto-execute)');
 
                   // mark as accepted and set feedback if present
@@ -623,7 +634,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   stopTimeoutFunction();
                   return;
                 } else {
-                  // autoProceed = true means wait for human feedback
+                  // autoProceed = false means wait for human feedback
                   console.log('GPT decision: wait for human feedback');
                   // Start the timeout function to wait for user input
                   timeoutFunction(waitforfeedback);

@@ -6,12 +6,13 @@ import { useAppState } from '../state/store';
 import { ParsedResponseSuccess } from './parseResponse';
 
 // System message based on evaluate_model.py construct_baseline_prompt_zero_shot
-const systemMessage = `You are a copilot helping an user in web navigation. You act in behalf of the user and you will ask the user what to do next when it is appropriate. If you don't ask, the user won't intervene. The task, previous actions, and current webpage observation are shown below. Before you think about the next step, think if you would need to ask the user at this point, and respond with your reasoning. Make sure to include the final decision in the form of <ask_user> or <agent_continue>.`;
+const systemMessage = `You are a copilot helping an user in web navigation. You act in behalf of the user and you will ask the user what to do next when it is appropriate. If you don't ask, the user won't intervene. The task, previous actions, current webpage observation, and a screenshot of the webpage are shown below. Before you think about the next step, think if you would need to ask the user at this point, and respond with your reasoning. Make sure to include the final decision in the form of <ask_user> or <agent_continue>.`;
 
 export function formatDecisionPrompt(
   taskInstructions: string,
   previousActions: ParsedResponseSuccess[],
-  pageContents: string
+  pageContents: string,
+  screenshot?: string
 ): string {
   let previousActionsString = '';
 
@@ -44,12 +45,14 @@ export function formatDecisionPrompt(
     previousActionsString = 'Past Actions:\n\n(No previous actions)';
   }
 
+  const screenshotNote = screenshot ? '\n\nSCREENSHOT: A screenshot of the current webpage is provided in the image below. Use it to better understand the visual context of the page.' : '';
+  
   return `INTENT: ${taskInstructions}
 
 ${previousActionsString}
 
 ACCESSIBILITY TREE OF CURRENT STEP:
-${pageContents}`;
+${pageContents}${screenshotNote}`;
 }
 
 export function parseDecisionResponse(response: string): boolean {
@@ -87,10 +90,11 @@ export async function determineUserInteractionDecision(
   previousActions: ParsedResponseSuccess[],
   simplifiedDOM: string,
   maxAttempts = 3,
-  notifyError?: (error: string) => void
+  notifyError?: (error: string) => void,
+  screenshot?: string
 ): Promise<boolean> {
   const model = useAppState.getState().settings.selectedModel;
-  const prompt = formatDecisionPrompt(taskInstructions, previousActions, simplifiedDOM);
+  const prompt = formatDecisionPrompt(taskInstructions, previousActions, simplifiedDOM, screenshot);
   const key = useAppState.getState().settings.openAIKey;
   
   if (!key) {
@@ -183,6 +187,24 @@ export async function determineUserInteractionDecision(
 
     for (let i = 0; i < maxAttempts; i++) {
       try {
+        // Prepare user content - include image if screenshot is provided
+        let userContent: any = prompt;
+        if (screenshot) {
+          // For vision models, content should be an array with text and image
+          userContent = [
+            {
+              type: "text",
+              text: prompt,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/png;base64,${screenshot}`,
+              },
+            },
+          ];
+        }
+
         const completion = await openai.createChatCompletion({
           model: model,
           messages: [
@@ -190,7 +212,7 @@ export async function determineUserInteractionDecision(
               role: 'system',
               content: systemMessage,
             },
-            { role: 'user', content: prompt },
+            { role: 'user', content: userContent },
           ],
           max_tokens: 500,
           temperature: 0,
