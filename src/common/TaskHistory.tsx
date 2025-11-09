@@ -11,7 +11,11 @@ type TaskHistoryItemProps = {
   length: number;
 };
 
-const PauseButton = () => {
+type PauseButtonProps = {
+  wasAutoExecuted?: boolean;
+};
+
+const PauseButton = ({ wasAutoExecuted = false }: PauseButtonProps) => {
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
 
@@ -19,23 +23,36 @@ const PauseButton = () => {
     reject: state.currentTask.actions.reject
   }));
 
+  // Determine timeout duration based on whether it was auto-executed
+  // For agent_continue: show briefly (0.5 seconds)
+  // For ask_user: keep original behavior (6 seconds)
+  const timeoutDuration = wasAutoExecuted 
+    ? wait_time_interval * 5  // 0.5 seconds for auto-executed
+    : wait_time_interval * 60; // 6 seconds for ask_user
+
+  // Animation interval for progress circle
+  // For agent_continue: faster animation to match 0.5s duration
+  // For ask_user: original 3 seconds
+  const animationInterval = wasAutoExecuted ? 5 : 30; // ms per step (100 steps total)
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       setIsVisible(false); 
-    }, wait_time_interval * 60);
+    }, timeoutDuration);
     return () => clearTimeout(timeout);
-  }, []);
+  }, [timeoutDuration]);
 
-  // Start the animation and reset it after 3 seconds
+  // Start the animation
   useEffect(() => {
     if (progress < 100) {
       const interval = setInterval(() => {
         setProgress((prev) => Math.min(prev + 1, 100)); // Increment progress up to 100%
-      }, 30); // 3 seconds total (100 steps * 30ms)
+      }, animationInterval);
       
       return () => clearInterval(interval);
     }
-  }, [progress]);
+  }, [progress, animationInterval]);
+  
   if (!isVisible) return null;
   
   const handleClick = () => {
@@ -126,7 +143,7 @@ const TaskHistoryItem = ({ index, entry, length}: TaskHistoryItemProps) => {
           >
             <Text fontSize="xs">{agentMessage}</Text>
           </Box>
-          <PauseButton />
+          <PauseButton wasAutoExecuted={entry.wasAutoExecuted} />
         </HStack>
         {/* User Inputs */}
         {entry.usersteps && entry.usersteps.map((step, stepIndex) => (

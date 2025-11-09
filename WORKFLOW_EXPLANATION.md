@@ -240,7 +240,7 @@ gpt response parsed: {thought: "...", action: "setvalue(185, ...)", parsedAction
 
 #### Step 3.5: Store Action in History
 
-**Location:** `currentTask.ts:524-547`
+**Location:** `currentTask.ts:548-560`
 
 Creates a history entry with:
 - Original prompt sent to GPT
@@ -250,6 +250,7 @@ Creates a history entry with:
 - DOM state
 - AX tree
 - URL
+- **Decision type** (`wasAutoExecuted`) - tracks whether this was auto-executed or waited for user
 
 ```typescript
 currententryfortaskhistory = {
@@ -259,6 +260,7 @@ currententryfortaskhistory = {
   usage: { tokens: 1234 },
   accept_flag: 'accept',
   counter: 0,  // Tracks if action has been executed
+  wasAutoExecuted: true,  // true = agent_continue (auto-executed), false = ask_user (waited for feedback)
   metadata: {
     DOM: "...",
     AXTree: "...",
@@ -269,6 +271,8 @@ currententryfortaskhistory = {
 }
 ```
 
+**Note:** The `wasAutoExecuted` field is set based on the decision model's recommendation (`autoProceed` state), which determines the UI behavior (pause button duration).
+
 **State Update:**
 ```typescript
 state.currentTask.history.push(currententryfortaskhistory);
@@ -278,7 +282,7 @@ state.currentTask.history.push(currententryfortaskhistory);
 
 #### Step 3.6: Decision Handling - Execute or Wait?
 
-**Location:** `currentTask.ts:590-636`
+**Location:** `currentTask.ts:601-647`
 
 **Check Decision Model's Recommendation:**
 ```typescript
@@ -304,15 +308,26 @@ const autoDecision = get().currentTask.autoProceed;  // true (from Step 3.2)
    - Sets `stopFlag = true`
    - Stops timeout function
 
+4. **UI Behavior:**
+   - Pause button appears briefly (0.5 seconds) next to the action message
+   - Progress circle animation completes in 0.5 seconds
+   - Button automatically disappears after the brief display
+
 **If `autoProceed = false` (ask user):**
 - Starts `timeoutFunction(waitforfeedback)`
 - Waits for user to accept/reject action
 - User can see the proposed action and approve it
+- **UI Behavior:**
+  - Pause button appears next to the action message
+  - Progress circle animation takes 3 seconds
+  - Button stays visible for 6 seconds, giving user time to pause if needed
+  - User can click the pause button to reject the action
 
 **In Our Example:**
 - Decision model said `<agent_continue>`
 - `autoProceed = true`
 - Action executes immediately
+- Pause button shows briefly (0.5s) then disappears
 
 **Console Output:**
 ```
@@ -422,7 +437,8 @@ option from the search results (ID: 699).
 - `autoProceed = false` (decision model said `<ask_user>`)
 - **Waits for user approval**
 - User sees: "I will click on the first search result (ID: 699)"
-- User can accept or reject
+- **Pause button appears** next to the message (visible for 6 seconds)
+- User can accept, reject, or click pause button to stop
 
 **If User Accepts:**
 - Executes `click(699)`
@@ -505,6 +521,7 @@ Decision: <agent_continue>
       action: ParsedResponse,
       accept_flag: 'accept' | 'reject',
       counter: 0,  // Execution count
+      wasAutoExecuted: true | false,  // true = agent_continue, false = ask_user
       metadata: DomElementmetadata
     }
   ],
@@ -576,14 +593,21 @@ User Input: "Search for tennis racquets under 50$"
 3. **History Tracking:**
    - Every action is stored in `history[]`
    - Includes prompt, response, parsed action, metadata, screenshots
+   - Includes `wasAutoExecuted` flag to track decision type
    - Used as context for future actions
 
-4. **Error Recovery:**
+4. **UI Feedback (Pause Button):**
+   - **For `agent_continue` decisions:** Pause button appears briefly (0.5 seconds) then disappears automatically
+   - **For `ask_user` decisions:** Pause button appears for 6 seconds, giving user time to pause/reject if needed
+   - The button shows a progress circle animation indicating remaining time
+   - Clicking the pause button rejects the current action
+
+5. **Error Recovery:**
    - Failed actions retry up to 3 times
    - If parsing fails → shows error to user
    - If DOM action fails → logs error but continues
 
-5. **Page Navigation:**
+6. **Page Navigation:**
    - When page navigates (e.g., clicking search results), the debugger connection might break
    - Code re-attaches debugger automatically
    - Fetches new AX tree for new page state

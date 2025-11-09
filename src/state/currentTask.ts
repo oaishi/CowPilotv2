@@ -61,6 +61,7 @@ export type TaskHistoryEntry = {
   metadata: DomElementmetadata;
   usersteps: UserLogStructure[];
   filteredusersteps?: string;
+  wasAutoExecuted?: boolean; // true = agent_continue (auto-executed), false = ask_user (waited for feedback)
 };
 
 export type CurrentTaskSlice = {
@@ -554,7 +555,8 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 counter: 0,
                 metadata: init_metadata,
                 usersteps: [],
-                filteredusersteps: ''
+                filteredusersteps: '',
+                wasAutoExecuted: get().currentTask.autoProceed // true = agent_continue (auto-executed), false = ask_user
               };
               
               if (action.parsedAction.name === 'fail') {
