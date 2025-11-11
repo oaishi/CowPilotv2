@@ -616,8 +616,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 stopTimeoutFunction();
                 return;
               }
-              // 🟩 GPT-based decision handling (replaces random decision)
-              // 🟩 GPT-based decision for user interaction (replaces random decision)
+              
               let decision: boolean = false; // default to auto-continue if error
               try {
                 const filteredActions = previousActions.filter(
@@ -649,8 +648,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
 
               const autoProceed = get().currentTask.autoProceed;
               const pauseRequested = get().currentTask.pauseRequested;
-              // Update last history entry with final decision
-              currententryfortaskhistory.wasAutoExecuted = autoProceed;
+              currententryfortaskhistory.wasAutoExecuted = autoProceed; // Update last history entry with final decision
               currententryfortaskhistory.ask_for_confirmation_flag = pauseRequested;
               // If user has requested pause, go to observe mode
               if (pauseRequested) {
@@ -951,22 +949,22 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               return;
             }
 
-            let img_data = '';
-            try
-            {
-              img_data = await takeScreenshot()
-            }
-            catch (e: any) {
-              // console.log('screenshot not working');
-              logTimeEvent('Error: screenshot not working');
-            } 
+            // let img_data = '';
+            // try
+            // {
+            //   img_data = await takeScreenshot()
+            // }
+            // catch (e: any) {
+            //   // console.log('screenshot not working');
+            //   logTimeEvent('Error: screenshot not working');
+            // } 
             
             set((state) => {
               if (state.currentTask.history.length > 0) {
                 const lastEntry = state.currentTask.history[state.currentTask.history.length - 1];
                 if (metadata) {
                   lastEntry.metadata = metadata;
-                  lastEntry.metadata.Screenshot = img_data;
+                  // lastEntry.metadata.Screenshot = img_data;
                 } else {
                   // If metadata is undefined, at least initialize it with the screenshot
                   if (!lastEntry.metadata) {
@@ -974,15 +972,15 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                     lastEntry.metadata = {
                       DOM: '',
                       AXTree: '',
-                      Screenshot: img_data,
+                      Screenshot: '',
                       action_type: action.parsedAction.name,
                       position: '',
                       nodeID: -1,
                       URL: ''
                     };
-                  } else {
+                  } /*else {
                     lastEntry.metadata.Screenshot = img_data;
-                  }
+                  }*/
                 }
               }
             });
