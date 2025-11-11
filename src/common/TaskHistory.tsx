@@ -143,7 +143,10 @@ const TaskHistoryItem = ({ index, entry, length}: TaskHistoryItemProps) => {
           >
             <Text fontSize="xs">{agentMessage}</Text>
           </Box>
-          <PauseButton wasAutoExecuted={entry.wasAutoExecuted} />
+          {/* 🔹 Only show Pause when NOT auto-executed */}
+          {!entry.wasAutoExecuted && (
+            <PauseButton wasAutoExecuted={entry.wasAutoExecuted} />
+          )}
         </HStack>
         {/* User Inputs */}
         {entry.usersteps && entry.usersteps.map((step, stepIndex) => (
