@@ -6,10 +6,13 @@ export type eval_score =
   value: string | number
 }
 
+export type UserGroupId = '0' | '1' | '2' | '3';
+
 export type SettingsSlice = {
   openAIKey: string | null;
   selectedModel: string;
   selectedPrompt: string;
+  selectedUserGroup: UserGroupId;
   summary: eval_score[];
   actions: {
     update: (values: Partial<SettingsSlice>) => void;
@@ -21,6 +24,7 @@ export const createSettingsSlice: MyStateCreator<SettingsSlice> = (set) => ({
   openAIKey: null,
   selectedModel: 'gpt-4o',
   selectedPrompt: 'WebArena',
+  selectedUserGroup: '0',
   summary: [{'name': 'name', 'value': 'value'}],
   actions: {
     update: (values) => {

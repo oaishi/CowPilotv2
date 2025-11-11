@@ -5,15 +5,25 @@ import {
 import { useAppState } from '../state/store';
 import { ParsedResponseSuccess } from './parseResponse';
 import { TaskHistoryEntry } from '../state/currentTask';
+import { per_cluster_intervention_pattern } from '../constants';
 
 // System message based on evaluate_model.py construct_baseline_prompt_zero_shot
-const systemMessage = `You are a copilot helping an user in web navigation. You act in behalf of the user and you will ask the user what to do next when it is appropriate. If you don't ask, the user won't intervene and you will continue the proposed action. The task, previous actions, proposed action, current webpage observation, and a screenshot of the webpage are shown below. Think if you would need to ask for confirmation the user at this point to continue the proposed action, and respond with your reasoning. Make sure to include the final decision in the form of <ask_user> or <agent_continue>.`;
+const systemMessage = `You are a copilot helping an user in web navigation.`+
+`You act in behalf of the user and you will ask the user what to do next when it is appropriate.`+
+`If you don't ask, the user won't intervene and you will continue the proposed action.`+
+`Typically people intervene primarily for 1) error correction/recovery; 2) preference misalignment; and 3) assistive intervention for complex tasks.`+
+`The task, previous actions, proposed action, current webpage observation, and a screenshot of the webpage are shown below.`+
+`You will also be given a short description of the typical intervention pattern of this particular user.`+
+`You can use the intervention pattern as a cue to personalize the prediction for them.`+
+`Think if you would need to ask for confirmation the user at this point to continue the proposed action, and respond with your reasoning.`+
+`Make sure to include the final decision in the form of <ask_user> or <agent_continue>.`;
 
 export function formatDecisionPrompt(
   taskInstructions: string,
   previousActions: ParsedResponseSuccess[],
   proposedAction: TaskHistoryEntry,
   pageContents: string,
+  interventionPattern: string,
   screenshot?: string
 ): string {
   let previousActionsString = '';
@@ -42,16 +52,16 @@ export function formatDecisionPrompt(
       return `${agentaction}${userlogaction}`;
     }).join('\n\n');
     
-    previousActionsString = `Past Actions:\n\n${actionString}`;
+    previousActionsString = `PAST ACTIONS:\n\n${actionString}`;
   } else {
-    previousActionsString = 'Past Actions:\n\n(No previous actions)';
+    previousActionsString = 'PAST ACTIONS:\n\n(No previous actions)';
   }
 
-  const proposedActionString = `Proposed Action:\n<Thought>${(proposedAction.action as ParsedResponseSuccess).thought}</Thought>\n<Action>${(proposedAction.action as ParsedResponseSuccess).action}</Action>`;
+  const proposedActionString = `PROPOSED ACTION:\n<Thought>${(proposedAction.action as ParsedResponseSuccess).thought}</Thought>\n<Action>${(proposedAction.action as ParsedResponseSuccess).action}</Action>`;
   const screenshotNote = screenshot ? '\n\nSCREENSHOT: A screenshot of the current webpage is provided in the image below. Use it to better understand the visual context of the page.' : '';
   
   return `INTENT: ${taskInstructions}
-
+INTERVENTION STYLE OF THIS USER: ${interventionPattern}
 ${previousActionsString}
 ${proposedActionString}
 
@@ -99,7 +109,8 @@ export async function determineUserInteractionDecision(
   screenshot?: string
 ): Promise<boolean> {
   const model = useAppState.getState().settings.selectedModel;
-  const prompt = formatDecisionPrompt(taskInstructions, previousActions, proposedAction, simplifiedDOM, screenshot);
+  const usergroup = useAppState.getState().settings.selectedUserGroup;
+  const prompt = formatDecisionPrompt(taskInstructions, previousActions, proposedAction, simplifiedDOM, per_cluster_intervention_pattern[Number(usergroup)] ?? '', screenshot);
   const key = useAppState.getState().settings.openAIKey;
   
   if (!key) {
