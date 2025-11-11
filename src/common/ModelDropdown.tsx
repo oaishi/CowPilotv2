@@ -21,8 +21,8 @@ const ModelDropdown = () => {
       value={selectedModel || ''}
       onChange={(e) => updateSettings({ selectedModel: e.target.value })}
     >
-      <option value="neulab/gpt-4o-2024-08-06">GPT-4o (LiteLLM)</option>
-      <option value="neulab/meta-llama/Meta-Llama-3.1-8B-Instruct">Llama 8B (LiteLLM)</option>
+      {/* <option value="neulab/gpt-4o-2024-08-06">GPT-4o (LiteLLM)</option>
+      <option value="neulab/meta-llama/Meta-Llama-3.1-8B-Instruct">Llama 8B (LiteLLM)</option> */}
       <option value="gpt-4o">GPT-4o</option>
       {/* <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
       <option value="gpt-3.5-turbo-16k">GPT-3.5 Turbo (16k)</option>

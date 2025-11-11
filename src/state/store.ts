@@ -48,14 +48,15 @@ export const useAppState = create<StoreType>()(
           timeLog: state.currentTask.timeLog,
           // store specific history entries so that we can show the history in multi-tab setting
           // without taking up too much storage
-          history: state.currentTask.history.map(({ response, action, usersteps, filteredusersteps}) => ({
+          history: state.currentTask.history.map(({ response, action, usersteps, filteredusersteps, wasAutoExecuted}) => ({
             response,
             action,
             usersteps: usersteps.map(({ action_type, elementName, position }) => ({
               action_type,
               elementName,
               position })),
-            filteredusersteps
+            filteredusersteps,
+            wasAutoExecuted
           })),
         },
       }),
