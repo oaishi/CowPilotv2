@@ -238,7 +238,7 @@ export async function determineNextAction(
                 response: responseContent + '</Action>',
             };
         }
-        console.log('Retrying due to missing <Action> tag...');
+        console.log('Retrying due to missing <Action> tag...', responseContent);
       } catch (error: any) {
         console.log('determineNextAction error', error);
         if (error.response.data.error.message.includes('server error')) {
