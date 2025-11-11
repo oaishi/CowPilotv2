@@ -19,7 +19,7 @@ export type SettingsSlice = {
 };
 export const createSettingsSlice: MyStateCreator<SettingsSlice> = (set) => ({
   openAIKey: null,
-  selectedModel: 'neulab/gpt-4o-2024-08-06',
+  selectedModel: 'gpt-4o',
   selectedPrompt: 'WebArena',
   summary: [{'name': 'name', 'value': 'value'}],
   actions: {
