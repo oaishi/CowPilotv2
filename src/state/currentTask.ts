@@ -99,7 +99,9 @@ export type CurrentTaskSlice = {
     initiate:() => void;
     DownloadData:() => void;
     markascriticalstep:() => void;
+    pause: () => void; 
   };
+  pauseRequested: boolean;
 };
 
 function postdata(url: string, data: any){
@@ -205,6 +207,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
     status: 'idle',
     autoProceed: false, // Default: wait for feedback (safer) – will be overridden by decision model
     actionStatus: 'idle',
+    pauseRequested: false, 
     actions: {
       runTask: async (onError) => {
         const wasStopped = () => get().currentTask.status !== 'running';
@@ -645,9 +648,22 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               }
 
               const autoProceed = get().currentTask.autoProceed;
+              const pauseRequested = get().currentTask.pauseRequested;
               // Update last history entry with final decision
               currententryfortaskhistory.wasAutoExecuted = autoProceed;
-              currententryfortaskhistory.ask_for_confirmation_flag = autoProceed;
+              currententryfortaskhistory.ask_for_confirmation_flag = pauseRequested;
+              // If user has requested pause, go to observe mode
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.pauseRequested = false;
+                  state.currentTask.userDecision = 'reject';
+                  const last = state.currentTask.history[state.currentTask.history.length - 1];
+                  last.accept_flag = 'reject';
+                });
+                timeoutFunction(waitforfeedback);
+                return;
+              }
               set((state) => {
                 state.currentTask.history.push(currententryfortaskhistory);
               });
@@ -970,18 +986,30 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 }
               }
             });
+            const agentPerformElapsed = performance.now() - agentPerformStart;
+            set((state) => {
+              state.currentTask.totalAgentTime += agentPerformElapsed;
+            });
+            logTimeEvent("Agent: Finished performdomoperation");
             
-            // typescript does not allow to directly modify the entries
-            // let modifiableEntry = { ...currententryfortaskhistory };
-            // modifiableEntry.accept_flag = 'accept';
-            // let modifiablemetadata = { ...metadata };
-            // modifiablemetadata.Screenshot = img_data;
-            // modifiableEntry.metadata = modifiablemetadata;
-            //creategptactiondataforpost(modifiableEntry, waitTime, useAppState.getState().currentTask.history.length, relation_id);
-
             await sleep(50);
             const history = get().currentTask.history;
-            if (history.length > 0) {
+            const pauseRequested = get().currentTask.pauseRequested;
+
+            if (pauseRequested) {
+              console.log('firing pause, should start logging');
+              // Don't auto-call the model again; switch to wait-for-feedback
+              set((state) => {
+                state.currentTask.pauseRequested = false; // consume pause
+                state.currentTask.userDecision = 'reject';
+                if (state.currentTask.history.length > 0) {
+                  const last = state.currentTask.history[state.currentTask.history.length - 1];
+                  last.accept_flag = 'reject';
+                  last.ask_for_confirmation_flag = true;
+                }
+              });
+              timeoutFunction(waitforfeedback);
+            } else if (history.length > 0) {
               const count = history[history.length - 1].counter;
               // to prevent repetitive call to OpenAI
               // sometimes there is error in the call, hence recalling the function
@@ -990,20 +1018,11 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 fetchmodelResponse(instructions);
               }
             }
-            const agentPerformElapsed = performance.now() - agentPerformStart;
-            set((state) => {
-              state.currentTask.totalAgentTime += agentPerformElapsed;
-            });
-            logTimeEvent("Agent: Finished performdomoperation");
           }
           
           // 🟩 GPT-based decision is now made inside fetchmodelResponse() after getting context
           // Decision happens after AX tree and previous actions are available
           fetchmodelResponse(instructions);
-          
-          // Note: The decision is stored in autoProceed state inside fetchmodelResponse()
-          // The timeoutFunction(waitforfeedback) is called inside fetchmodelResponse() 
-          // based on the autoProceed state (see lines ~554-590)
 
         } catch (e: any) {
           onError(e.message);
@@ -1141,6 +1160,11 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
       reject: () => {
         set((state) => {
           state.currentTask.userDecision = 'reject';
+        });
+      },
+      pause: () => {
+        set((state) => {
+          state.currentTask.pauseRequested = true;
         });
       },
       initiate: () => {
