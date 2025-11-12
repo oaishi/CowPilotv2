@@ -387,6 +387,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               let axtree_rep = "";
               let processTime = 0;
               let repTime = 0;
+              let pauseRequested;
             
               // waiting until page loads properly, otherwise axtree is not fetched properly due to reduce in wait time
               const maxAttempts = 10;
@@ -429,6 +430,22 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 }))
                 .filter(truthyFilter);
 
+              pauseRequested = get().currentTask.pauseRequested;
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.autoProceed = false;
+                  state.currentTask.pauseRequested = false; // consume pause
+                  state.currentTask.userDecision = 'reject';
+                  if (state.currentTask.history.length > 0) {
+                    const last = state.currentTask.history[state.currentTask.history.length - 1];
+                    last.accept_flag = 'reject';
+                    last.ask_for_confirmation_flag = true;
+                  }
+                });
+                timeoutFunction(waitforfeedback);
+                return;
+              }
               setActionStatus('performing-query'); 
               logTimeEvent("Agent: Starting GPT query"); 
               let query;
@@ -455,6 +472,22 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   state.settings.summary = summary_draft;
                   state.currentTask.status = 'error';
                 });
+                return;
+              }
+              pauseRequested = get().currentTask.pauseRequested;
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.autoProceed = false;
+                  state.currentTask.pauseRequested = false; // consume pause
+                  state.currentTask.userDecision = 'reject';
+                  if (state.currentTask.history.length > 0) {
+                    const last = state.currentTask.history[state.currentTask.history.length - 1];
+                    last.accept_flag = 'reject';
+                    last.ask_for_confirmation_flag = true;
+                  }
+                });
+                timeoutFunction(waitforfeedback);
                 return;
               }
               const callTime = performance.now();
@@ -560,6 +593,22 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 });
                 // console.log('update check', get().currentTask.history[index_of_last_entry-1].filteredusersteps);
               }
+              pauseRequested = get().currentTask.pauseRequested;
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.autoProceed = false;
+                  state.currentTask.pauseRequested = false; // consume pause
+                  state.currentTask.userDecision = 'reject';
+                  if (state.currentTask.history.length > 0) {
+                    const last = state.currentTask.history[state.currentTask.history.length - 1];
+                    last.accept_flag = 'reject';
+                    last.ask_for_confirmation_flag = true;
+                  }
+                });
+                timeoutFunction(waitforfeedback);
+                return;
+              }
 
               if (action.parsedAction.name === 'finish' || action.parsedAction.name === 'finishwithanswer') {
                 logTimeEvent("Agent: Finished execution step (finish/finishwithanswer)");
@@ -647,7 +696,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               }
 
               const autoProceed = get().currentTask.autoProceed;
-              const pauseRequested = get().currentTask.pauseRequested;
+              pauseRequested = get().currentTask.pauseRequested;
               currententryfortaskhistory.wasAutoExecuted = autoProceed; // Update last history entry with final decision
               currententryfortaskhistory.ask_for_confirmation_flag = pauseRequested;
               // If user has requested pause, go to observe mode
@@ -696,7 +745,6 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 }
                 timeoutFunction(waitforfeedback);
               }
-              // 🟩 END DECISION HANDLING
             } finally {
               const agentElapsed = performance.now() - agentStartTime;
               set((state) => {
@@ -996,7 +1044,6 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
 
             if (pauseRequested) {
               console.log('firing pause, should start logging');
-              // Don't auto-call the model again; switch to wait-for-feedback
               set((state) => {
                 state.currentTask.pauseRequested = false; // consume pause
                 state.currentTask.userDecision = 'reject';
