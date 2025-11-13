@@ -41,6 +41,7 @@ export const useAppState = create<StoreType>()(
         settings: {
           openAIKey: state.settings.openAIKey,
           selectedModel: state.settings.selectedModel,
+          selectedUserGroup: state.settings.selectedUserGroup,
         },
         currentTask: {
           status: state.currentTask.status,
