@@ -33,6 +33,6 @@ export default function showTooltipAtPosition(x: number, y: number, tooltipText:
         clearInterval(interval);
         tooltip.remove();
       }
-    }, 30); // (30ms = 3 seconds total)
+    }, 3); // (3ms total)
   }
   

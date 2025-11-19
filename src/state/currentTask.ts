@@ -78,7 +78,7 @@ export type CurrentTaskSlice = {
   totalAgentTime: number;
   totalHumanTime: number;
   status: 'idle' | 'running' | 'success' | 'error' | 'interrupted'| 'accept'| 'reject';
-  autoProceed: boolean; // GPT-based decision: false = auto-execute, true = wait for feedback
+  autoProceed: boolean; // GPT-based decision: true = auto-execute, false = wait for feedback
   actionStatus:
     | 'idle'
     | 'attaching-debugger'
@@ -99,7 +99,9 @@ export type CurrentTaskSlice = {
     initiate:() => void;
     DownloadData:() => void;
     markascriticalstep:() => void;
+    pause: () => void; 
   };
+  pauseRequested: boolean;
 };
 
 function postdata(url: string, data: any){
@@ -123,15 +125,6 @@ function postdata(url: string, data: any){
     console.error('Error updating item:', error);
   });
 }
-
-// Removed makeRandomDecision() - now using GPT-based decision via determineUserInteractionDecision()
-// function makeRandomDecision(): boolean {
-//   // generate a random number, return true if even, false if odd
-//   const n = Math.floor(Math.random() * 1000000);
-//   console.log('Auto-decision random number:', n);
-//   return n % 2 === 0;
-// }
-
 
 function creategptactiondataforpost(taskhistory :TaskHistoryEntry, time: Number, flag: number, relation_id: any){
   let itemData = {
@@ -162,7 +155,8 @@ function downloadTaskHistoryData(taskHistoryEntries: CurrentTaskSlice, task_inte
       counter: entry.counter,
       metadata: entry.metadata,
       usersteps: entry.usersteps,
-      filteredusersteps: entry.filteredusersteps
+      filteredusersteps: entry.filteredusersteps,
+      wasAutoExecuted: entry.wasAutoExecuted
     };
   });
   
@@ -211,8 +205,9 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
     totalAgentTime: 0,
     totalHumanTime: 0,
     status: 'idle',
-    autoProceed: true, // Default to waiting for feedback (safer)
+    autoProceed: false, // Default: wait for feedback (safer) – will be overridden by decision model
     actionStatus: 'idle',
+    pauseRequested: false, 
     actions: {
       runTask: async (onError) => {
         const wasStopped = () => get().currentTask.status !== 'running';
@@ -225,7 +220,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           set((state) => {
             if (state.currentTask.tab_array.length === 0 || state.currentTask.tab_array[state.currentTask.tab_array.length - 1] !== tab_number) {
               state.currentTask.tab_array.push(tab_number);
-              state.currentTask.tab_index = state.currentTask.tab_array.length;
+              state.currentTask.tab_index = state.currentTask.tab_array.length - 1;
             }
           });
         };
@@ -233,7 +228,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           set((state) => {
             if (state.currentTask.url_array.length === 0 || state.currentTask.url_array[state.currentTask.url_array.length - 1] !== url_link) {
               state.currentTask.url_array.push(url_link);
-              state.currentTask.url_index = state.currentTask.url_array.length;
+              state.currentTask.url_index = state.currentTask.url_array.length - 1;
             }
           });
         };
@@ -254,8 +249,8 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           state.currentTask.timeLog = [];
         });
         
-        if (save_data_to_server){
-          const relation_id = get().currentTask.UniqueIDperTask; 
+        const relation_id = get().currentTask.UniqueIDperTask;
+        if (save_data_to_server){ 
           let session_data = {
             _id: uuidv4(),
             _uuid: relation_id,
@@ -296,7 +291,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
 
           let startTimeforTimeout: number | null = null;
           let stopFlag = false;
-          let intervalId: NodeJS.Timer | number | null = null;
+          let intervalId: number | null = null;
 
           async function GenerateErrorSummary(): Promise<eval_score[]>
           {
@@ -308,7 +303,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 history[historylength-1].filteredusersteps?.length == 0))
               {
                 const mergedResult = await mergeUserAction(get().currentTask.history[historylength - 1]);
-                console.log('mergedResult', mergedResult);
+                // console.log('mergedResult', mergedResult);
                 set((state) => {
                   state.currentTask.history[historylength - 1].filteredusersteps = mergedResult;
                 });
@@ -339,7 +334,15 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           }
 
           function timeoutFunction(callback: () => void): void {
+            // clear any previous interval
+            if (intervalId) {
+              clearInterval(intervalId);
+              intervalId = null;
+            }
+          
             startTimeforTimeout = performance.now();
+            stopFlag = false;
+          
             intervalId = setInterval(() => {
               console.log('i am still running', stopFlag);
               if (!stopFlag) {
@@ -347,11 +350,11 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               }
             }, wait_time_interval);
           }
-
+          
           function stopTimeoutFunction(): void {
             if (intervalId) {
-              clearInterval(intervalId); // Stops the interval
-              intervalId = null; // Resets the variable so it can be restarted later if needed
+              clearInterval(intervalId);
+              intervalId = null;
               console.log('Timer has been completely stopped.');
             }
           }          
@@ -366,7 +369,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 await chrome.tabs.query({ active: true, currentWindow: true })
                 )[0];
                 const tabId = activeTab.id;
-                console.log('attaching to:', tabId);
+                // console.log('attaching to:', tabId);
                 if (typeof tabId === 'number'){
                   set((state) => {
                     state.currentTask.tabId = tabId;
@@ -384,6 +387,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               let axtree_rep = "";
               let processTime = 0;
               let repTime = 0;
+              let pauseRequested;
             
               // waiting until page loads properly, otherwise axtree is not fetched properly due to reduce in wait time
               const maxAttempts = 10;
@@ -393,12 +397,12 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 const stepStartTime = performance.now();
                 const _ = await getMapping();
                 processTime = performance.now();
-                console.log(`Mapping took: ${processTime - stepStartTime} milliseconds`);
+                // console.log(`Mapping took: ${processTime - stepStartTime} milliseconds`);
                 
                 await sleep(5);
                 axtree_rep = await fetch_page_accessibility_tree(true);
                 repTime = performance.now();
-                console.log(`fetch AXtree took: ${repTime - processTime - 5} milliseconds`);
+                // console.log(`fetch AXtree took: ${repTime - processTime - 5} milliseconds`);
                 if (axtree_rep !== "") {
                   logTimeEvent("Agent: AX tree fetched");
                   flag = false;
@@ -414,10 +418,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 return;
               }
             
-              if (wasStopped()) return;    
-              // const previousActions = get()
-              // .currentTask.history.map((entry) => entry.action)
-              // .filter(truthyFilter);
+              if (wasStopped()) return;
               const previousActions = get().currentTask.history
                 .filter(entry => !('error' in entry.action))
                 .map(entry => ({
@@ -428,48 +429,23 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   feedback: (entry.action as ParsedResponseSuccess).feedback
                 }))
                 .filter(truthyFilter);
-        
-              // 🟩 GPT-based decision for user interaction (replaces random decision)
-              let decision: boolean = false; // default to auto-continue if error
-              try {
-                const filteredActions = previousActions.filter(
-                  (pa) => !('error' in pa)
-                ) as ParsedResponseSuccess[];
-                
-                // Take screenshot for decision model
-                let screenshotData = '';
-                try {
-                  screenshotData = await takeScreenshot();
-                  logTimeEvent("Agent: Screenshot captured for decision model");
-                } catch (e: any) {
-                  console.log('Screenshot failed for decision model, continuing without it:', e);
-                  logTimeEvent('Warning: Screenshot capture failed for decision model');
-                }
-                
-                logTimeEvent("Agent: Starting decision model query");
-                const decisionResult = await determineUserInteractionDecision(
-                  instructions,
-                  filteredActions,
-                  axtree_rep,
-                  3,
-                  onError,
-                  screenshotData || undefined
-                );
-                decision = decisionResult;
-                // decision = true means ask_user (wait for feedback)
-                // decision = false means agent_continue (auto-execute)
-                // autoProceed = false means don't auto (wait), autoProceed = true means auto-execute
-                // So we invert: autoProceed = !decision
-                set((state) => { state.currentTask.autoProceed = !decision; });
-                logTimeEvent(`Agent: Decision made - ${decision ? 'Ask User (wait for feedback)' : 'Auto Continue (execute immediately)'}`);
-              } catch (e: any) {
-                console.error('Decision model error, defaulting to auto-continue:', e);
-                logTimeEvent('Error: Decision model failed, defaulting to auto-continue');
-                // Fallback: default to auto-continue (false) if decision fails
-                decision = false;
-                set((state) => { state.currentTask.autoProceed = true; }); // auto-execute
+
+              pauseRequested = get().currentTask.pauseRequested;
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.autoProceed = false;
+                  state.currentTask.pauseRequested = false; // consume pause
+                  state.currentTask.userDecision = 'reject';
+                  if (state.currentTask.history.length > 0) {
+                    const last = state.currentTask.history[state.currentTask.history.length - 1];
+                    last.accept_flag = 'reject';
+                    last.ask_for_confirmation_flag = true;
+                  }
+                });
+                timeoutFunction(waitforfeedback);
+                return;
               }
-        
               setActionStatus('performing-query'); 
               logTimeEvent("Agent: Starting GPT query"); 
               let query;
@@ -490,15 +466,30 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 stopFlag = true;
                 stopTimeoutFunction();
                 const summary_draft = await GenerateErrorSummary();
+                detachDebugger(get().currentTask.tabId);
                 set((state) => {
                   state.currentTask.tabId = -1;
                   state.settings.summary = summary_draft;
                   state.currentTask.status = 'error';
                 });
-                detachDebugger(get().currentTask.tabId);
                 return;
               }
-
+              pauseRequested = get().currentTask.pauseRequested;
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.autoProceed = false;
+                  state.currentTask.pauseRequested = false; // consume pause
+                  state.currentTask.userDecision = 'reject';
+                  if (state.currentTask.history.length > 0) {
+                    const last = state.currentTask.history[state.currentTask.history.length - 1];
+                    last.accept_flag = 'reject';
+                    last.ask_for_confirmation_flag = true;
+                  }
+                });
+                timeoutFunction(waitforfeedback);
+                return;
+              }
               const callTime = performance.now();
               console.log(`GPT4 response took: ${callTime - processTime} milliseconds`);
               logTimeEvent("Agent: GPT query completed");
@@ -507,41 +498,48 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 stopFlag = true;
                 stopTimeoutFunction();
                 const summary_draft = await GenerateErrorSummary();
+                detachDebugger(get().currentTask.tabId);
                 set((state) => {
                   state.currentTask.tabId = -1;
                   state.settings.summary = summary_draft;
                   state.currentTask.status = 'error';
                 });
-                detachDebugger(get().currentTask.tabId);
                 return;
               }
-                
+
               if (wasStopped()) return;
-            
               action = parseResponse(query.response);
-              console.log('gpt response', query.response);
               console.log('gpt response parsed', action);
               setActionStatus('showing-response');
+              if (action === null) {
+                return;
+              }
               if ('error' in action) {
                 console.log('error in action', action.error);
                 logTimeEvent('Error: ' + action.error);
                 onError(action.error);
+                detachDebugger(get().currentTask.tabId);
                 set((state) => {
+                  state.currentTask.tabId = -1;
                   state.currentTask.status = 'error';
                 });
+                stopFlag = true;
                 stopTimeoutFunction();
                 return;
               }
-                
-              // ToDo: make it efficient
+              const [domString, screenshot, url] = await Promise.all([
+                callRPC('getDOM') as Promise<string>,
+                takeScreenshot(),
+                callRPC('getURl') as Promise<string>
+              ]);
               const init_metadata: DomElementmetadata = {
-                DOM: await callRPC('getDOM') as string,
+                DOM: domString,
                 AXTree: axtree_rep,
-                Screenshot: await takeScreenshot(),
+                Screenshot: screenshot,
                 action_type: action.parsedAction.name,
                 position: '',
                 nodeID: -1,
-                URL: await callRPC('getURl') as string
+                URL: url
               };
               addURLIfNotExists(init_metadata.URL);
                   
@@ -556,7 +554,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 metadata: init_metadata,
                 usersteps: [],
                 filteredusersteps: '',
-                wasAutoExecuted: get().currentTask.autoProceed // true = agent_continue (auto-executed), false = ask_user
+                wasAutoExecuted: false
               };
               
               if (action.parsedAction.name === 'fail') {
@@ -576,12 +574,12 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   stopFlag = true;
                   stopTimeoutFunction();
                   const summary_draft = await GenerateErrorSummary();
+                  detachDebugger(get().currentTask.tabId);
                   set((state) => {
                     state.currentTask.tabId = -1;
                     state.settings.summary = summary_draft;
                   });
                   // downloadTaskHistoryData(get().currentTask, get().ui.instructions, summary_draft);
-                  return;
                 }
                 return;
               }
@@ -589,78 +587,45 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               const index_of_last_entry = get().currentTask.history.length;
               if ( index_of_last_entry > 0) {
                 const mergedResult = await mergeUserAction(get().currentTask.history[index_of_last_entry - 1]);
-                console.log('mergedResult', mergedResult);
+                // console.log('mergedResult', mergedResult);
                 set((state) => {
                   state.currentTask.history[index_of_last_entry - 1].filteredusersteps = mergedResult;
                 });
-                console.log('update check', get().currentTask.history[index_of_last_entry-1].filteredusersteps);
+                // console.log('update check', get().currentTask.history[index_of_last_entry-1].filteredusersteps);
               }
-                
-              set((state) => {
-                state.currentTask.history.push(currententryfortaskhistory);
-              });
-
-              // 🟩 GPT-based decision handling (replaces random decision)
-              // Decision was made earlier (line ~426-454) and stored in autoProceed state
-              try {
-                const autoDecision = get().currentTask.autoProceed;
-                if (autoDecision === true) {
-                  // autoProceed = true means auto-execute (don't wait for feedback)
-                  console.log('GPT decision: proceed without waiting for human feedback (auto-execute)');
-
-                  // mark as accepted and set feedback if present
-                  set((state) => {
-                    if (state.currentTask.history.length > 0) {
-                      const lastIdx = state.currentTask.history.length - 1;
-                      state.currentTask.history[lastIdx].accept_flag = 'accept';
-                      const lastAction = state.currentTask.history[lastIdx].action;
-                      if (lastAction && typeof lastAction === 'object' && 'feedback' in lastAction) {
-                        lastAction.feedback = 'accept';
-                      }
-                    }
-                  });
-
-                  const lastEntry = get().currentTask.history[get().currentTask.history.length - 1];
-                  const ifstepisexecuted = lastEntry ? lastEntry.counter : 0;
-
-                  if (ifstepisexecuted == 0) {
-                    // perform the action immediately
-                    performdomoperation(action);
-                  } else {
-                    console.log('This step is already done (auto-execute). Recalling model.');
-                    fetchmodelResponse(instructions);
+              pauseRequested = get().currentTask.pauseRequested;
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.autoProceed = false;
+                  state.currentTask.pauseRequested = false; // consume pause
+                  state.currentTask.userDecision = 'reject';
+                  if (state.currentTask.history.length > 0) {
+                    const last = state.currentTask.history[state.currentTask.history.length - 1];
+                    last.accept_flag = 'reject';
+                    last.ask_for_confirmation_flag = true;
                   }
-
-                  // stop timeout loop since we're not waiting for feedback
-                  stopFlag = true;
-                  stopTimeoutFunction();
-                  return;
-                } else {
-                  // autoProceed = false means wait for human feedback
-                  console.log('GPT decision: wait for human feedback');
-                  // Start the timeout function to wait for user input
-                  timeoutFunction(waitforfeedback);
-                }
-              } catch (e) {
-                console.error('Decision handling error', e);
-                // On error, default to waiting for feedback (safer)
+                });
                 timeoutFunction(waitforfeedback);
+                return;
               }
-              // 🟩 END DECISION HANDLING
-          
+
               if (action.parsedAction.name === 'finish' || action.parsedAction.name === 'finishwithanswer') {
                 logTimeEvent("Agent: Finished execution step (finish/finishwithanswer)");
+                set((state) => {
+                  state.currentTask.history.push(currententryfortaskhistory);
+                });
                 const history = get().currentTask.history;
-                const historylength = get().currentTask.history.length;
+                const historylength = history.length;
                 if (historylength > 0 && 
                   history[historylength-1].usersteps.length > 0 && 
                   history[historylength-1].filteredusersteps === undefined) {
-                  const mergedResult = await mergeUserAction(get().currentTask.history[historylength - 1]);
-                  console.log('mergedResult', mergedResult);
+                  const mergedResult = await mergeUserAction(history[historylength - 1]);
+                  // console.log('mergedResult', mergedResult);
                   set((state) => {
                     state.currentTask.history[historylength - 1].filteredusersteps = mergedResult;
                   });
-                  console.log('update check', get().currentTask.history[historylength-1].filteredusersteps);
+                  // console.log('update check', get().currentTask.history[historylength-1].filteredusersteps);
                   await sleep(1);
                 }
                 let summary_draft: eval_score[] = [];
@@ -700,13 +665,85 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 stopTimeoutFunction();
                 return;
               }
-              else if (action === null) {
+              
+              let decision: boolean = false; // default to auto-continue if error
+              try {
+                const filteredActions = previousActions.filter(
+                  (pa) => !('error' in pa)
+                ) as ParsedResponseSuccess[];
+                
+                logTimeEvent("Agent: Starting decision model query");
+                const decisionResult = await determineUserInteractionDecision(
+                  instructions,
+                  filteredActions,
+                  currententryfortaskhistory,
+                  axtree_rep,
+                  3,
+                  onError,
+                  screenshot || undefined
+                );
+                decision = decisionResult;
+                // decision = true means ask_user (wait for feedback)
+                // decision = false means agent_continue (auto-execute)
+                // autoProceed = false means don't auto (wait), autoProceed = true means auto-execute
+                // So we invert: autoProceed = !decision
+                set((state) => { state.currentTask.autoProceed = !decision; });
+                logTimeEvent(`Agent: Decision made - ${decision ? 'Ask User (wait for feedback)' : 'Auto Continue (execute immediately)'}`);
+              } catch (e: any) {
+                console.error('Decision model error, defaulting to wait-for-feedback:', e);
+                logTimeEvent('Error: Decision model failed, defaulting to wait-for-feedback');
+                set((state) => { state.currentTask.autoProceed = false; }); // wait-for-feedback
+              }
+
+              const autoProceed = get().currentTask.autoProceed;
+              pauseRequested = get().currentTask.pauseRequested;
+              currententryfortaskhistory.wasAutoExecuted = autoProceed; // Update last history entry with final decision
+              currententryfortaskhistory.ask_for_confirmation_flag = pauseRequested;
+              // If user has requested pause, go to observe mode
+              if (pauseRequested) {
+                console.log('firing pause, should start logging');
+                set((state) => {
+                  state.currentTask.pauseRequested = false;
+                  state.currentTask.userDecision = 'reject';
+                  const last = state.currentTask.history[state.currentTask.history.length - 1];
+                  last.accept_flag = 'reject';
+                });
+                timeoutFunction(waitforfeedback);
                 return;
               }
-              // stopFlag = false;
-                  
-              if (action.parsedAction.name !== 'goto' && action.parsedAction.name !== 'scroll') {
+              set((state) => {
+                state.currentTask.history.push(currententryfortaskhistory);
+              });
+
+              try {
+                if (autoProceed) {
+                  const lastEntry = get().currentTask.history[get().currentTask.history.length - 1];
+                  const ifstepisexecuted = lastEntry ? lastEntry.counter : 0;
+                  if (ifstepisexecuted == 0) {
+                    // perform the action immediately
+                    performdomoperation(action);
+                  } else {
+                    fetchmodelResponse(instructions);
+                  }
+
+                  // stop timeout loop since we're not waiting for feedback
+                  stopFlag = true;
+                  stopTimeoutFunction();
+                  return;
+                } else {
+                  if (action.parsedAction.name !== 'goto' && action.parsedAction.name !== 'scroll') {
+                    hintTooltip(action.parsedAction.args, action.parsedAction.name);
+                  }
+                  // Start the timeout function to wait for user input
+                  timeoutFunction(waitforfeedback);
+                }
+              } catch (e) {
+                console.error('Decision handling error', e);
+                // On error, default to waiting for feedback (safer)
+                if (action.parsedAction.name !== 'goto' && action.parsedAction.name !== 'scroll') {
                   hintTooltip(action.parsedAction.args, action.parsedAction.name);
+                }
+                timeoutFunction(waitforfeedback);
               }
             } finally {
               const agentElapsed = performance.now() - agentStartTime;
@@ -717,35 +754,49 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           }
 
           async function waitforfeedback(): Promise<void> {
+            //make stopFlag true if status is finished or interrupted
+            if (get().currentTask.status === 'interrupted' || get().currentTask.status === 'error' ) {
+              stopFlag = true;
+              stopTimeoutFunction();
+              const summary_draft = await GenerateErrorSummary();
+              set((state) => {
+                state.currentTask.tabId = -1;
+                state.settings.summary = summary_draft;
+              });
+              return;
+              // downloadTaskHistoryData(get().currentTask, get().ui.instructions, summary_draft);
+            }
             const elapsedTime = performance.now() - (startTimeforTimeout ?? 0);
             const userdecision = get().currentTask.userDecision;
  
             // checking if the user pressed any shortcut
-            if (userdecision === 'idle') {
-              chrome.runtime.sendMessage({
-                type: 'getuserdecisionshortcut'
-              }, async (response) => {
-                if (response.reply !== null){
-                  console.log('found user decision', response);
-                  logTimeEvent(`User decision shortcut received: ${response.reply}`);
-                  startTimeforTimeout = performance.now();
-                  set((state) => {
-                    state.currentTask.userDecision = response.reply;});
-                  }
-                });
-            }
+            // if (userdecision === 'idle') {
+            //   chrome.runtime.sendMessage({
+            //     type: 'getuserdecisionshortcut'
+            //   }, async (response) => {
+            //     if (response.reply !== null){
+            //       console.log('found user decision', response);
+            //       logTimeEvent(`User decision shortcut received: ${response.reply}`);
+            //       startTimeforTimeout = performance.now();
+            //       set((state) => {
+            //         state.currentTask.userDecision = response.reply;});
+            //       }
+            //     });
+            // }
             
             // mark the current action as critical which must acquire user confirmation
-            if (userdecision === 'askforconfirmation')
-            {
-              startTimeforTimeout = performance.now();
-              set((state) => {
-                if (state.currentTask.history.length > 0) {
-                  state.currentTask.history[state.currentTask.history.length - 1].ask_for_confirmation_flag = true;
-                  // state.currentTask.totalHumanTime += elapsedTime;
-                }
-              });
-            }
+            // if (userdecision === 'askforconfirmation')
+            // {
+            //   startTimeforTimeout = performance.now();
+            //   set((state) => {
+            //     if (state.currentTask.history.length > 0) {
+            //       state.currentTask.history[state.currentTask.history.length - 1].ask_for_confirmation_flag = true;
+            //       // state.currentTask.totalHumanTime += elapsedTime;
+            //     }
+            //     state.currentTask.userDecision = 'idle';
+            //   });
+            //   return;
+            // }
 
             if (userdecision === 'reject') {
               set((state) => {
@@ -755,11 +806,6 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 }
               });
               startTimeforTimeout = performance.now();
-              
-              // update the past action that it was rejected
-              // let modifiableEntry = { ...currententryfortaskhistory };
-              // modifiableEntry.accept_flag = 'reject';
-              // if (save_data_to_server) creategptactiondataforpost(modifiableEntry, performance.now(), useAppState.getState().currentTask.history.length, relation_id);
               
               // https://github.com/oaishi/annotation_pg/blob/main/Data_Annotation_Tool/src/pages/Content/index.ts
               // https://github.com/oaishi/annotation_pg/blob/50d76a811982b02f895ac4c77ef35ee13ca399c0/Data_Annotation_Tool/src/pages/Background/index.ts
@@ -772,7 +818,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                     state.currentTask.totalHumanTime += humanActionElapsed;
                 });
                 if (response.reply !== null){
-                  console.log("got user log info from background", response);
+                  // console.log("got user log info from background", response);
                   logTimeEvent("User: log received after rejection");
                   const user_log_metadata = response.reply as UserLogStructure;
                   const ax_tree = await fetch_page_accessibility_tree(false);
@@ -788,7 +834,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   });
                  
                   if (save_data_to_server){
-                    let trajectory_index = useAppState.getState().currentTask.history.length;
+                    let trajectory_index = useAppState.getState().currentTask.history.length - 1;
                     const historyEntry = useAppState.getState().currentTask.history[trajectory_index];  
                     let userlog_flag = 0;
                     if (historyEntry && historyEntry.usersteps) {
@@ -806,12 +852,12 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                   }
                 }
               });
+              return;
             }
 
             else if (userdecision === 'next') {
               stopFlag = true;
-              startTimeforTimeout = performance.now();
-              await sleep(15);
+              stopTimeoutFunction();
               set((state) => {
                 state.currentTask.userDecision = 'idle';
                 state.currentTask.totalHumanTime += elapsedTime;
@@ -819,14 +865,12 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               // user requested for the next step, so start model calling again
               await fetchmodelResponse(instructions);
               logTimeEvent("User: Agent resumed");
-              await sleep(2);
-              stopFlag = false;
+              return;
             }
 
-            else if (elapsedTime >= (wait_time_interval * 80) || userdecision === 'accept') {
-              // stopFlag = true;
-              // restart the timer, otherwise the initial timer will be counted for all the steps
-              startTimeforTimeout = performance.now();
+            else if ((elapsedTime >= (wait_time_interval * 35)) || userdecision === 'accept') {
+              stopFlag = true;
+              stopTimeoutFunction();
               logTimeEvent("Agent: Suggestion accepted");
               set((state) => {
                 state.currentTask.userDecision = 'idle';
@@ -841,25 +885,14 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               });
 
               const ifstepisexecuted = get().currentTask.history[get().currentTask.history.length - 1].counter;
-              if (ifstepisexecuted == 0) performdomoperation(action);
+              if (ifstepisexecuted === 0) performdomoperation(action);
               else
               {
-                console.log('this step is already done');
+                // console.log('this step is already done');
                 fetchmodelResponse(instructions); //recalling the model here again because the last step is already done
               }
+              return;
             } 
-              
-            //make stopFlag true if status is finished or interrupted
-            if (get().currentTask.status === 'interrupted' || get().currentTask.status === 'error' ) {
-              stopFlag = true;
-              stopTimeoutFunction();
-              const summary_draft = await GenerateErrorSummary();
-              set((state) => {
-                state.currentTask.tabId = -1;
-                state.settings.summary = summary_draft;
-              });
-              // downloadTaskHistoryData(get().currentTask, get().ui.instructions, summary_draft);
-            }
           }
                   
           async function performdomoperation(action)
@@ -869,15 +902,14 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 state.currentTask.history[state.currentTask.history.length - 1].counter += 1;
               }
             });
-            await sleep(2);
             // console.log('user accepted feedback! will perform task now');
             const agentPerformStart = performance.now();
             logTimeEvent("Agent: Starting performdomoperation");
             setActionStatus('performing-action');
             const waitTime = performance.now();
             // rippleTime might be undefined if this is called before it's set, so use agentPerformStart instead
-            const rippleTimeToUse = rippleTime ?? agentPerformStart;
-            console.log(`Wait took: ${waitTime - rippleTimeToUse} milliseconds`);
+            // const rippleTimeToUse = rippleTime ?? agentPerformStart;
+            // console.log(`Wait took: ${waitTime - rippleTimeToUse} milliseconds`);
 
             const noDebugger = await isDebuggerAttachedToCurrentWindow();
             if (noDebugger && get().currentTask.status === "running")
@@ -887,7 +919,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 await chrome.tabs.query({ active: true, currentWindow: true })
                 )[0];
                 const tabId = activeTab.id;
-                console.log('attaching to:', tabId);
+                // console.log('attaching to:', tabId);
                 if (typeof tabId === 'number'){
                   set((state) => {
                     state.currentTask.tabId = tabId;
@@ -942,7 +974,7 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                 await chrome.tabs.query({ active: true, currentWindow: true })
                 )[0];
                 const tabId = activeTab.id;
-                console.log('attaching to:', tabId);
+                // console.log('attaching to:', tabId);
                 if (typeof tabId === 'number'){
                   set((state) => {
                     state.currentTask.tabId = tabId;
@@ -965,22 +997,22 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
               return;
             }
 
-            let img_data = '';
-            try
-            {
-              img_data = await takeScreenshot()
-            }
-            catch (e: any) {
-              console.log('screenshot not working');
-              logTimeEvent('Error: screenshot not working');
-            } 
+            // let img_data = '';
+            // try
+            // {
+            //   img_data = await takeScreenshot()
+            // }
+            // catch (e: any) {
+            //   // console.log('screenshot not working');
+            //   logTimeEvent('Error: screenshot not working');
+            // } 
             
             set((state) => {
               if (state.currentTask.history.length > 0) {
                 const lastEntry = state.currentTask.history[state.currentTask.history.length - 1];
                 if (metadata) {
                   lastEntry.metadata = metadata;
-                  lastEntry.metadata.Screenshot = img_data;
+                  // lastEntry.metadata.Screenshot = img_data;
                 } else {
                   // If metadata is undefined, at least initialize it with the screenshot
                   if (!lastEntry.metadata) {
@@ -988,53 +1020,54 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
                     lastEntry.metadata = {
                       DOM: '',
                       AXTree: '',
-                      Screenshot: img_data,
+                      Screenshot: '',
                       action_type: action.parsedAction.name,
                       position: '',
                       nodeID: -1,
                       URL: ''
                     };
-                  } else {
+                  } /*else {
                     lastEntry.metadata.Screenshot = img_data;
-                  }
+                  }*/
                 }
               }
             });
-            
-            // typescript does not allow to directly modify the entries
-            // let modifiableEntry = { ...currententryfortaskhistory };
-            // modifiableEntry.accept_flag = 'accept';
-            // let modifiablemetadata = { ...metadata };
-            // modifiablemetadata.Screenshot = img_data;
-            // modifiableEntry.metadata = modifiablemetadata;
-            //creategptactiondataforpost(modifiableEntry, waitTime, useAppState.getState().currentTask.history.length, relation_id);
-
-            await sleep(50);
-            const history = get().currentTask.history;
-            if (history.length > 0) {
-              const count = history[history.length - 1].counter;
-              // to prevent repetitive call to OpenAI
-              // sometimes there is error in the call, hence recalling the function
-              if (count < 2) 
-              {
-                console.log('calling model');
-                fetchmodelResponse(instructions);
-              }
-            }
             const agentPerformElapsed = performance.now() - agentPerformStart;
             set((state) => {
               state.currentTask.totalAgentTime += agentPerformElapsed;
             });
             logTimeEvent("Agent: Finished performdomoperation");
+            
+            await sleep(50);
+            const history = get().currentTask.history;
+            const pauseRequested = get().currentTask.pauseRequested;
+
+            if (pauseRequested) {
+              console.log('firing pause, should start logging');
+              set((state) => {
+                state.currentTask.pauseRequested = false; // consume pause
+                state.currentTask.userDecision = 'reject';
+                if (state.currentTask.history.length > 0) {
+                  const last = state.currentTask.history[state.currentTask.history.length - 1];
+                  last.accept_flag = 'reject';
+                  last.ask_for_confirmation_flag = true;
+                }
+              });
+              timeoutFunction(waitforfeedback);
+            } else if (history.length > 0) {
+              const count = history[history.length - 1].counter;
+              // to prevent repetitive call to OpenAI
+              // sometimes there is error in the call, hence recalling the function
+              if (count < 2) 
+              {
+                fetchmodelResponse(instructions);
+              }
+            }
           }
           
           // 🟩 GPT-based decision is now made inside fetchmodelResponse() after getting context
           // Decision happens after AX tree and previous actions are available
           fetchmodelResponse(instructions);
-          
-          // Note: The decision is stored in autoProceed state inside fetchmodelResponse()
-          // The timeoutFunction(waitforfeedback) is called inside fetchmodelResponse() 
-          // based on the autoProceed state (see lines ~554-590)
 
         } catch (e: any) {
           onError(e.message);
@@ -1065,11 +1098,11 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           history[historylength-1].usersteps.length > 0 && 
           history[historylength-1].filteredusersteps === undefined) {
           const mergedResult = await mergeUserAction(get().currentTask.history[historylength - 1]);
-          console.log('mergedResult', mergedResult);
+          // console.log('mergedResult', mergedResult);
           set((state) => {
             state.currentTask.history[historylength - 1].filteredusersteps = mergedResult;
           });
-          console.log('update check', get().currentTask.history[historylength-1].filteredusersteps);
+          // console.log('update check', get().currentTask.history[historylength-1].filteredusersteps);
           await sleep(1);
         }
         if (get().currentTask.tabId !== -1)
@@ -1118,11 +1151,11 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
           history[historylength-1].usersteps.length > 0 && 
           history[historylength-1].filteredusersteps === undefined) {
           const mergedResult = await mergeUserAction(get().currentTask.history[historylength - 1]);
-          console.log('mergedResult', mergedResult);
+          // console.log('mergedResult', mergedResult);
           set((state) => {
             state.currentTask.history[historylength - 1].filteredusersteps = mergedResult;
           });
-          console.log('update check', get().currentTask.history[historylength-1].filteredusersteps);
+          // console.log('update check', get().currentTask.history[historylength-1].filteredusersteps);
           await sleep(1);
         }
         if (get().currentTask.tabId !== -1)
@@ -1172,6 +1205,11 @@ export const createCurrentTaskSlice: MyStateCreator<CurrentTaskSlice> = (
       reject: () => {
         set((state) => {
           state.currentTask.userDecision = 'reject';
+        });
+      },
+      pause: () => {
+        set((state) => {
+          state.currentTask.pauseRequested = true;
         });
       },
       initiate: () => {

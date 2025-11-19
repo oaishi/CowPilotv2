@@ -3,7 +3,7 @@ import React from 'react';
 import { TiTick } from "react-icons/ti";
 import { RxCross2 } from "react-icons/rx";
 import { useAppState } from '../state/store';
-import { BsPlayFill, BsFastForward } from 'react-icons/bs';
+import { BsPlayFill, BsFastForward, BsPause } from 'react-icons/bs';
 
 export default function RunTaskButton(props: { runTask: () => void }) {
   const state = useAppState((state) => ({
@@ -15,6 +15,7 @@ export default function RunTaskButton(props: { runTask: () => void }) {
     accept: state.currentTask.actions.accept,
     reject: state.currentTask.actions.reject,
     markascriticalstep: state.currentTask.actions.markascriticalstep,
+    pause: state.currentTask.actions.pause
   }));
 
   const toast = useToast(); 
@@ -118,7 +119,29 @@ export default function RunTaskButton(props: { runTask: () => void }) {
           </Tooltip>
         </VStack> */}
 
-        {/* Retry Button, only show when pause was pressed, WIP */}
+        {/* Pause Button */}
+        <VStack spacing={1}>
+          <Tooltip
+            label='Pause'
+            aria-label='Pause'
+          >
+            <Box
+              as="button"
+              onClick={state.pause}
+              borderRadius="full"
+              boxSize="30px"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              bg="orange.400"
+              color="white"
+            >
+              <Icon as={BsPause} boxSize={4} />
+            </Box>
+          </Tooltip>
+        </VStack>
+
+        {/* Retry Agent Button. Possible Modification: only show when pause was pressed */}
         <VStack spacing={1}>
         <Tooltip
           label='Resume'

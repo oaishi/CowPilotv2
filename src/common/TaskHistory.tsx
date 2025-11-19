@@ -24,16 +24,16 @@ const PauseButton = ({ wasAutoExecuted = false }: PauseButtonProps) => {
   }));
 
   // Determine timeout duration based on whether it was auto-executed
-  // For agent_continue: show briefly (0.5 seconds)
+  // For agent_continue: show briefly (0.1 seconds)
   // For ask_user: keep original behavior (6 seconds)
   const timeoutDuration = wasAutoExecuted 
-    ? wait_time_interval * 5  // 0.5 seconds for auto-executed
-    : wait_time_interval * 60; // 6 seconds for ask_user
+    ? wait_time_interval * 2  // 0.5 seconds for auto-executed
+    : wait_time_interval * 30; // 6 seconds for ask_user
 
   // Animation interval for progress circle
   // For agent_continue: faster animation to match 0.5s duration
   // For ask_user: original 3 seconds
-  const animationInterval = wasAutoExecuted ? 5 : 30; // ms per step (100 steps total)
+  const animationInterval = wasAutoExecuted ? 2 : 30; // ms per step (100 steps total)
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -143,7 +143,10 @@ const TaskHistoryItem = ({ index, entry, length}: TaskHistoryItemProps) => {
           >
             <Text fontSize="xs">{agentMessage}</Text>
           </Box>
-          <PauseButton wasAutoExecuted={entry.wasAutoExecuted} />
+          {/* 🔹 Only show Pause when NOT auto-executed */}
+          {!entry.wasAutoExecuted && (
+            <PauseButton wasAutoExecuted={entry.wasAutoExecuted} />
+          )}
         </HStack>
         {/* User Inputs */}
         {entry.usersteps && entry.usersteps.map((step, stepIndex) => (

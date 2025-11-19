@@ -8,3 +8,10 @@ export const host_url = 'http://localhost:8000';
 export const save_data_to_server = false;
 export const localStorageName = 'agent_localstorage';
 export const message_for_checking_ongoing_task = 'continue_multitab_task';
+export const per_cluster_intervention_pattern = 
+[
+    'This user has modest interventions pattern. They usually intervene later in the task, with a strong tendency to hand control back to the agent.',
+    'This user usually does not intervene. They prefer to stay fully hands-off throughout the task.',
+    'This user intervenes frequently and substantially, often later, balancing between taking over and giving control back.',
+    'This user intervenes occasionally, but almost exclusively at the very end of the task, and once they step in, they do not hand the control back to the agent.'
+]

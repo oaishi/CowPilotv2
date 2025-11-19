@@ -238,7 +238,7 @@ export async function determineNextAction(
                 response: responseContent + '</Action>',
             };
         }
-        console.log('Retrying due to missing <Action> tag...');
+        console.log('Retrying due to missing <Action> tag...', responseContent);
       } catch (error: any) {
         console.log('determineNextAction error', error);
         if (error.response.data.error.message.includes('server error')) {
@@ -276,19 +276,17 @@ export function formatPrompt(
     const actionString = previousActions.map(action => {
       const agentaction = `<Thought>${action.thought}</Thought>\n<Action>${action.action}</Action>`;
       const jsonObjects = JSON.parse(action.filteredusersteps || '[]');
-      console.log('action.filteredusersteps', action.filteredusersteps);
+      // console.log('action.filteredusersteps', action.filteredusersteps);
       let userlogaction = '';
       if (jsonObjects.length != 0) userlogaction += 'The user rejected the last action and performed the following actions:'
       for (const item of jsonObjects) {
-        userlogaction += `\n<Thought>${item.thought}</Thought>\n<Action>${item.action}</Action>`
-        console.log(item.thought, item.action);
+        userlogaction += `\n<Thought>${item.thought}</Thought>\n<Action>${item.action}</Action>`;
       }
       return `${agentaction}${userlogaction}`;
     }).join('\n');
-    console.log('actionString with user log', actionString);
+    // console.log('actionString with user log', actionString);
     previousActionsString = `${actionString}`;
   }
-  console.log('previous', previousActionsString);
   return `The user requests the following task: ${taskInstructions}
 Current page contents: ${pageContents}
 Previous actions: ${previousActionsString}`;
