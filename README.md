@@ -1,8 +1,27 @@
+
 <img src="src/assets/img/icon-128.png" width="64"/>
 
 # CowPilotV2
 
 CowPilotV2 is an AI-powered browser automation extension that uses Large Language Models to navigate and interact with web pages autonomously. It combines decision-making and action execution models to perform web tasks with minimal user intervention.
+
+## Table of Contents
+
+- [Installing and Running](#installing-and-running)
+- [Video Demo](#video-demo)
+- [Resources](#resources)
+- [Common Failure Cases](#common-failure-cases)
+- [Contributing](#contributing)
+
+## Video Demo
+
+<!-- TODO: Add video demonstration of the system -->
+
+## Resources
+
+- **Paper**: <!-- TODO: Add link to paper once published -->
+- **Dataset**: <!-- TODO: Add link to dataset once available -->
+- **Previous CowPilot Repository**: <!-- TODO: Add link to previous CowPilot repo -->
 
 ## Installing and Running
 
@@ -23,6 +42,9 @@ Currently this extension is only available through this GitHub repo. We'll relea
    4. Select the `build` folder that `yarn start` generated
 
 ## Common Failure Cases
+
+<details>
+<summary>Click to expand common failure cases</summary>
 
 While CowPilotV2 is designed to handle many scenarios automatically, there are some common failure cases you might encounter:
 
@@ -50,13 +72,15 @@ While CowPilotV2 is designed to handle many scenarios automatically, there are s
 - **Cause**: Due to race conditions, the state is not updated and hence a break condition is encountered
 - **Solution**: Close the extension and reopen it again
 
+</details>
+
 ## Contributing
 
 We welcome contributions! If you encounter bugs, have feature suggestions, or want to improve the codebase, we'd love to have your help.
 
 ### How to Contribute
 
-1. **Report Issues**: Open an issue describing the problem, including steps to reproduce and any relevant error messages
+1. **Report Issues**: Open an [issue](https://github.com/oaishi/CowPilotv2/issues) describing the problem, including steps to reproduce and any relevant error messages
 2. **Submit Pull Requests**: 
    - Fork the repository
    - Create a feature branch
