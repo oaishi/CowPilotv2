@@ -15,7 +15,7 @@ CowPilotV2 is an AI-powered browser automation extension that uses Large Languag
 
 ## Video Demo
 
-<!-- TODO: Add video demonstration of the system -->
+[Screen Recording.mov](Screen%20Recording.mov) - Watch the video demonstration of the system in action.
 
 ## Resources
 
