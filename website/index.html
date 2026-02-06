@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CowPilotV2 - AI-powered browser automation extension using Large Language Models">
+    <title>CowPilotV2 - AI Browser Automation</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <img src="../src/assets/img/icon-128.png" alt="CowPilotV2 Logo" class="logo-img">
+                    <span class="logo-text">CowPilotV2</span>
+                </div>
+                <ul class="nav-links">
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#demo">Demo</a></li>
+                    <li><a href="#updates">Updates</a></li>
+                    <li><a href="#resources">Resources</a></li>
+                    <li><a href="#visualizations">Data</a></li>
+                    <li><a href="#installation">Installation</a></li>
+                    <li><a href="#bibtex">BibTeX</a></li>
+                </ul>
+                <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section id="home" class="header-section">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="../src/assets/img/icon-128.png" alt="CowPilotV2 Logo" class="header-logo">
+                    <h1 class="header-title">CowPilotV2: A Framework for Autonomous and Human-Agent Collaborative Web Navigation</h1>
+                </div>
+                
+                <div class="authors">
+                    <div class="author-list">
+                        <!-- Update with actual authors -->
+                        <span class="author">Author Name<sup>1</sup></span>,
+                        <span class="author">Author Name<sup>2</sup></span>,
+                        <span class="author">Author Name<sup>1</sup></span>
+                        <span class="supervisor">*</span>
+                    </div>
+                    <div class="affiliation">
+                        <sup>1</sup> Carnegie Mellon University<br>
+                        <sup>2</sup> Affiliation Name
+                        <span class="supervisor-note">*Indicates Equal Supervision</span>
+                    </div>
+                </div>
+
+                <div class="header-links">
+                    <a href="#" class="link-btn" id="arxiv-link" target="_blank" rel="noopener noreferrer">ArXiv</a>
+                    <a href="#" class="link-btn" id="dataset-link-header" target="_blank" rel="noopener noreferrer">User Log Data</a>
+                    <a href="https://github.com/oaishi/CowPilotv2" class="link-btn" target="_blank" rel="noopener noreferrer">Chrome Extension</a>
+                    <a href="https://github.com/oaishi/CowPilotv2" class="link-btn" target="_blank" rel="noopener noreferrer">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Overview Section -->
+    <section id="overview" class="overview">
+        <div class="container">
+            <h2 class="section-title">Overview</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI-Powered Automation</h3>
+                    <p>Uses advanced Large Language Models to understand and execute complex web navigation tasks autonomously.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Dual-Model Architecture</h3>
+                    <p>Combines decision-making and action execution models for intelligent task completion with minimal intervention.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Universal Web Support</h3>
+                    <p>Works on any website, understanding DOM structure and executing actions across different web platforms.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Real-Time Interaction</h3>
+                    <p>Provides real-time feedback and allows user intervention when needed for error correction or preference alignment.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="demo">
+        <div class="container">
+            <h2 class="section-title">Video Demo</h2>
+            <div class="demo-content">
+                <div class="video-container">
+                    <video width="100%" controls poster="">
+                        <source src="../Screen Recording.mov" type="video/quicktime">
+                        <source src="../Screen Recording.mov" type="video/mp4">
+                        Your browser does not support the video tag. 
+                        <a href="../Screen Recording.mov">Download the video</a> instead.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Latest Updates Section -->
+    <section id="updates" class="updates">
+        <div class="container">
+            <h2 class="section-title">Latest Updates</h2>
+            <ul class="updates-list">
+                <li class="update-item">
+                    <span class="update-date">[Date, '25]</span>
+                    <span class="update-text">CowPilotV2 Chrome Extension (beta version) is released. Please feel free to test and share your feedback with us!</span>
+                </li>
+                <li class="update-item">
+                    <span class="update-date">[Date, '25]</span>
+                    <span class="update-text">CowPilotV2 is released over ArXiv.</span>
+                </li>
+                <li class="update-item">
+                    <span class="update-date">[Date, '24]</span>
+                    <span class="update-text">CowPilotV2 is under review in [Conference Name], 2025</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Resources Section -->
+    <section id="resources" class="resources">
+        <div class="container">
+            <h2 class="section-title">Resources</h2>
+            <div class="resources-grid">
+                <div class="resource-card">
+                    <div class="resource-icon">📄</div>
+                    <h3>Research Paper</h3>
+                    <p>Read our detailed research paper on AI-powered browser automation and LLM-based web navigation.</p>
+                    <a href="#" class="resource-link" id="paper-link" target="_blank" rel="noopener noreferrer">
+                        View Paper →
+                    </a>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-icon">📊</div>
+                    <h3>Dataset</h3>
+                    <p>Access our comprehensive dataset used for training and evaluation of the CowPilotV2 system.</p>
+                    <a href="#" class="resource-link" id="dataset-link" target="_blank" rel="noopener noreferrer">
+                        Download Dataset →
+                    </a>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-icon">🤗</div>
+                    <h3>HuggingFace Models</h3>
+                    <p>Explore and use our pre-trained models available on HuggingFace for browser automation tasks.</p>
+                    <a href="#" class="resource-link" id="huggingface-link" target="_blank" rel="noopener noreferrer">
+                        View on HuggingFace →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Visualizations Section -->
+    <section id="visualizations" class="visualizations">
+        <div class="container">
+            <h2 class="section-title">Data & Performance</h2>
+            <div class="viz-tabs">
+                <button class="viz-tab active" data-tab="heatmap">Per Cluster PTS Heatmap</button>
+                <button class="viz-tab" data-tab="barplot">Test Results</button>
+            </div>
+            
+            <div class="viz-content">
+                <div class="viz-panel active" id="heatmap-panel">
+                    <div class="chart-container" id="heatmapContainer" style="height: 550px; position: relative; overflow: hidden; width: 100%;">
+                    </div>
+                </div>
+                
+                <div class="viz-panel" id="barplot-panel">
+                    <div class="chart-container">
+                        <canvas id="barplotChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation" class="installation">
+        <div class="container">
+            <h2 class="section-title">Installation & Getting Started</h2>
+            <div class="installation-content">
+                <div class="install-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Prerequisites</h3>
+                            <p>Ensure you have <a href="https://nodejs.org/" target="_blank" rel="noopener noreferrer">Node.js</a> >= 16 installed on your system.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Clone Repository</h3>
+                            <pre><code>git clone https://github.com/oaishi/CowPilotv2.git
+cd CowPilotv2</code></pre>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Install Dependencies</h3>
+                            <pre><code>yarn install
+yarn add -D typescript @babel/preset-typescript @babel/preset-react</code></pre>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h3>Build Extension</h3>
+                            <pre><code>yarn start</code></pre>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h3>Load in Chrome</h3>
+                            <ol>
+                                <li>Navigate to <code>chrome://extensions/</code></li>
+                                <li>Toggle <strong>Developer mode</strong></li>
+                                <li>Click <strong>Load unpacked extension</strong></li>
+                                <li>Select the <code>build</code> folder generated by <code>yarn start</code></li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BibTeX Section -->
+    <section id="bibtex" class="bibtex">
+        <div class="container">
+            <h2 class="section-title">BibTeX</h2>
+            <div class="bibtex-container">
+                <pre class="bibtex-code"><code>@misc{cowpilotv22025,
+      title={CowPilotV2: A Framework for Autonomous and Human-Agent Collaborative Web Navigation}, 
+      author={Author Name and Author Name and Author Name},
+      year={2025},
+      eprint={XXXX.XXXXX},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/XXXX.XXXXX}}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>CowPilotV2</h4>
+                    <p>AI-powered browser automation extension</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://github.com/oaishi/CowPilotv2" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+                        <li><a href="#resources">Resources</a></li>
+                        <li><a href="#installation">Installation</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="#" id="footer-paper-link">Paper</a></li>
+                        <li><a href="#" id="footer-dataset-link">Dataset</a></li>
+                        <li><a href="#" id="footer-hf-link">HuggingFace</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 CowPilotV2. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
