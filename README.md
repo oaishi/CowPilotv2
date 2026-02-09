@@ -1,9 +1,9 @@
 
 <img src="src/assets/img/icon-128.png" width="64"/>
 
-# CowPilotV2
+# PlowPilot
 
-CowPilotV2 is an AI-powered browser automation extension that uses Large Language Models to navigate and interact with web pages autonomously. It combines decision-making and action execution models to perform web tasks with minimal user intervention.
+PlowPilot is an AI-powered browser automation extension that uses Large Language Models to navigate and interact with web pages autonomously. It combines decision-making and action execution models to perform web tasks with minimal user intervention.
 
 ## Table of Contents
 
@@ -23,12 +23,12 @@ CowPilotV2 is an AI-powered browser automation extension that uses Large Languag
 ## Resources
 
 - **Paper**: <!-- TODO: Add link to paper once published -->
-- **Dataset**: <!-- TODO: Add link to dataset once available -->
+- **Models**: [huggingface/CowCorpus](https://huggingface.co/CowCorpus)
 - **Previous CowPilot Repository**: <!-- TODO: Add link to previous CowPilot repo -->
 
 ## Installing and Running
 
-Currently this extension is only available through this GitHub repo. We'll release it on the Chrome Web Store after adding features to increase its usability for a non-technical audience. To build and install the extension locally on your machine, follow the instructions below.
+Currently, this extension is only available through this GitHub repo. We'll release it on the Chrome Web Store after adding features to increase its usability for a non-technical audience. To build and install the extension locally on your machine, follow the instructions below.
 
 ### Installing the extension
 
@@ -49,7 +49,7 @@ Currently this extension is only available through this GitHub repo. We'll relea
 <details>
 <summary>Click to expand common failure cases</summary>
 
-While CowPilotV2 is designed to handle many scenarios automatically, there are some common failure cases you might encounter:
+While PlowPilot is designed to handle many scenarios automatically, there are some common failure cases you might encounter:
 
 ### 1. **OpenAI API Errors**
 - **Symptom**: "Error: GPT query not working" or "Decision model failed"
@@ -83,11 +83,11 @@ We welcome contributions! If you encounter bugs, have feature suggestions, or wa
 
 ### How to Contribute
 
-1. **Report Issues**: Open an [issue](https://github.com/oaishi/CowPilotv2/issues) describing the problem, including steps to reproduce and any relevant error messages
+1. **Report Issues**: Open an [issue](https://github.com/oaishi/PlowPilot/issues) describing the problem, including steps to reproduce and any relevant error messages
 2. **Submit Pull Requests**: 
    - Fork the repository
    - Create a feature branch
    - Make your changes
    - Submit a pull request with a clear description of what you've changed and why
 
-We appreciate all contributions! Every PR helps make CowPilotV2 better!
+We appreciate all contributions! Every PR helps make PlowPilot better!
