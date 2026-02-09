@@ -24,7 +24,7 @@ PlowPilot is an AI-powered browser automation extension that uses Large Language
 
 - **Paper**: <!-- TODO: Add link to paper once published -->
 - **Models**: [huggingface/CowCorpus](https://huggingface.co/CowCorpus)
-- **Previous CowPilot Repository**: <!-- TODO: Add link to previous CowPilot repo -->
+- **Previous CowPilot Repository**: [Github Repo Link for Cowpilot](https://github.com/oaishi/CowPilot)
 
 ## Installing and Running
 
