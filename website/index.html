@@ -103,6 +103,29 @@
         </div>
     </section>
 
+    <!-- Data & Performance Section -->
+    <section id="visualizations" class="visualizations">
+        <div class="container">
+            <h2 class="section-title">Data & Performance</h2>
+            <div class="viz-tabs">
+                <button class="viz-tab active" data-tab="heatmap">Per Cluster PTS Heatmap</button>
+                <button class="viz-tab" data-tab="barplot">Test Results</button>
+            </div>
+            
+            <div class="viz-content">
+                <div class="viz-panel active" id="heatmap-panel">
+                    <div class="chart-container" id="heatmapContainer" style="height: 550px; position: relative; overflow: hidden; width: 100%;"></div>
+                </div>
+                
+                <div class="viz-panel" id="barplot-panel">
+                    <div class="chart-container">
+                        <canvas id="barplotChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Demo Section -->
     <section id="demo" class="demo">
         <div class="container">
@@ -169,30 +192,6 @@
                     <a href="#" class="resource-link" id="huggingface-link" target="_blank" rel="noopener noreferrer">
                         View on HuggingFace →
                     </a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Data Visualizations Section -->
-    <section id="visualizations" class="visualizations">
-        <div class="container">
-            <h2 class="section-title">Data & Performance</h2>
-            <div class="viz-tabs">
-                <button class="viz-tab active" data-tab="heatmap">Per Cluster PTS Heatmap</button>
-                <button class="viz-tab" data-tab="barplot">Test Results</button>
-            </div>
-            
-            <div class="viz-content">
-                <div class="viz-panel active" id="heatmap-panel">
-                    <div class="chart-container" id="heatmapContainer" style="height: 550px; position: relative; overflow: hidden; width: 100%;">
-                    </div>
-                </div>
-                
-                <div class="viz-panel" id="barplot-panel">
-                    <div class="chart-container">
-                        <canvas id="barplotChart"></canvas>
-                    </div>
                 </div>
             </div>
         </div>
