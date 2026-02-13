@@ -208,34 +208,34 @@ async function parseCSV(filePath) {
     }
 }
 
-// Heatmap Chart
-let heatmapChartInitialized = false;
+// Heatmap Chart - support multiple containers (main + home)
+const initedHeatmapContainers = new Set();
 
-function initHeatmapChart() {
-    const container = document.getElementById('heatmapContainer');
+function initHeatmapChart(containerId) {
+    const id = containerId || 'heatmapContainer';
+    if (initedHeatmapContainers.has(id)) return;
+    
+    const container = document.getElementById(id);
     if (!container) return;
     
-    // Load CSV data if not already loaded
     if (!heatmapData) {
         parseCSV('per_cluster_llava_PTS.csv').then(data => {
             if (data) {
                 heatmapData = data;
-                createHeatmapChart(data);
-                heatmapChartInitialized = true;
+                createHeatmapChart(data, id);
+                initedHeatmapContainers.add(id);
             }
         });
         return;
     }
     
-    // Recreate chart if data is already loaded
-    if (heatmapData && !heatmapChartInitialized) {
-        createHeatmapChart(heatmapData);
-        heatmapChartInitialized = true;
-    }
+    createHeatmapChart(heatmapData, id);
+    initedHeatmapContainers.add(id);
 }
 
-function createHeatmapChart(data) {
-    const container = document.getElementById('heatmapContainer');
+function createHeatmapChart(data, containerId) {
+    const id = containerId || 'heatmapContainer';
+    const container = document.getElementById(id);
     if (!container) return;
     
     // Clear previous content
@@ -284,11 +284,11 @@ function createHeatmapChart(data) {
         .interpolator(d3.interpolateBlues);
     
     // Create SVG for heatmap with better sizing
-    // Get container width more reliably - account for padding
+    // Get container size - use actual container height for home (e.g. 420px) or default 550
     const containerRect = container.getBoundingClientRect();
     const containerPadding = 32; // Account for chart-container padding (2rem = 32px)
     const availableWidth = containerRect.width > 0 ? containerRect.width - containerPadding : 900;
-    const containerHeight = 550;
+    const containerHeight = container.clientHeight > 0 ? container.clientHeight : 550;
     
     // Adjust margins to ensure y-axis fits - increase left margin for longer labels
     const margin = { top: 100, right: 150, bottom: 100, left: 180 };
@@ -299,7 +299,7 @@ function createHeatmapChart(data) {
     const finalWidth = Math.max(width, 400);
     const finalContainerWidth = finalWidth + margin.left + margin.right;
     
-    const svg = d3.select('#heatmapContainer')
+    const svg = d3.select(`#${id}`)
         .append('svg')
         .attr('width', finalContainerWidth)
         .attr('height', containerHeight)
@@ -486,7 +486,7 @@ function createHeatmapChart(data) {
     
     const defs = svg.append('defs');
     const linearGradient = defs.append('linearGradient')
-        .attr('id', 'legend-gradient')
+        .attr('id', `legend-gradient-${id.replace(/[^a-z0-9]/gi, '_')}`)
         .attr('x1', '0%')
         .attr('y1', '0%')
         .attr('x2', '0%')
@@ -503,7 +503,7 @@ function createHeatmapChart(data) {
     legend.append('rect')
         .attr('width', legendWidth)
         .attr('height', legendHeight)
-        .style('fill', 'url(#legend-gradient)')
+        .style('fill', `url(#legend-gradient-${id.replace(/[^a-z0-9]/gi, '_')})`)
         .attr('stroke', '#ccc')
         .attr('stroke-width', 1)
         .attr('rx', 2);
@@ -522,32 +522,41 @@ function createHeatmapChart(data) {
         .text('PTS Score');
 }
 
-// Bar Plot Chart
-let barplotChart = null;
+// Bar Plot Chart - support multiple canvases (main + home)
+const barplotCharts = {};
+const initedBarplotCanvases = new Set();
 
-function initBarplotChart() {
-    if (barplotChart) return;
+function initBarplotChart(canvasId) {
+    const id = canvasId || 'barplotChart';
+    if (initedBarplotCanvases.has(id)) return;
     
-    const ctx = document.getElementById('barplotChart');
+    const ctx = document.getElementById(id);
     if (!ctx) return;
     
-    // Load CSV data if not already loaded
     if (!testResultsData) {
         parseCSV('test_results.csv').then(data => {
             if (data) {
                 testResultsData = data;
-                createBarplotChart(data);
+                createBarplotChart(data, id);
+                initedBarplotCanvases.add(id);
             }
         });
         return;
     }
     
-    createBarplotChart(testResultsData);
+    createBarplotChart(testResultsData, id);
+    initedBarplotCanvases.add(id);
 }
 
-function createBarplotChart(data) {
-    const ctx = document.getElementById('barplotChart');
+function createBarplotChart(data, canvasId) {
+    const id = canvasId || 'barplotChart';
+    const ctx = document.getElementById(id);
     if (!ctx) return;
+    
+    if (barplotCharts[id]) {
+        barplotCharts[id].destroy();
+        barplotCharts[id] = null;
+    }
     
     // Define model families with classic color palette
     const modelFamilies = {
@@ -594,7 +603,7 @@ function createBarplotChart(data) {
     const ptsColors = processedData.map(d => d.color + 'DD');
     const accuracyColors = processedData.map(d => d.color + '88');
     
-    barplotChart = new Chart(ctx, {
+    barplotCharts[id] = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -763,9 +772,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const activePanel = document.querySelector('.viz-panel.active');
     if (activePanel) {
         if (activePanel.id === 'heatmap-panel') {
-            initHeatmapChart();
+            initHeatmapChart('heatmapContainer');
         } else if (activePanel.id === 'barplot-panel') {
-            initBarplotChart();
+            initBarplotChart('barplotChart');
         }
     }
 });
