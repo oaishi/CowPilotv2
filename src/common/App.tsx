@@ -24,7 +24,7 @@ const App = () => {
           />
 
           <Heading as="h4" size="xs" flex={1}>
-            CowPilotv2
+            PlowPilot
           </Heading>
           <HStack spacing={2}>
             <VStack spacing={2}>

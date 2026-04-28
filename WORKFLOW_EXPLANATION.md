@@ -1,8 +1,8 @@
-# COWPilotv2 Workflow Explanation - Generated using Cursor
+# PlowPilot Workflow Explanation - Generated using Cursor
 
 ## Complete Workflow with Example: "Search for tennis racquets under 50$"
 
-This document explains the end-to-end workflow of how COWPilotv2 processes a task, using the example input: **"Search for tennis racquets under 50$"**.
+This document explains the end-to-end workflow of how PlowPilot processes a task, using the example input: **"Search for tennis racquets under 50$"**.
 
 ---
 

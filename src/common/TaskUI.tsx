@@ -98,7 +98,7 @@ const TaskUI = () => {
       <Box position="fixed" bottom = {0} width="90%" bg= "white" mb={4}>
         <Textarea
           autoFocus
-          placeholder="CowPilot uses OpenAI's GPT-4 API to perform actions on the current page. Try telling it to sign up for a newsletter, or to add an item to your cart."
+          placeholder="PlowPilot uses OpenAI's GPT-4 API to perform actions on the current page. Try telling it to sign up for a newsletter, or to add an item to your cart."
           value={state.instructions || ''}
           disabled={taskInProgress}
           onChange={(e) => state.setInstructions(e.target.value)}
